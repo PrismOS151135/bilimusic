@@ -50,6 +50,7 @@ jobs:
           --ks-pass pass:${{ secrets.SIGNING_KEY_PASSWORD }} \
           --key-pass pass:${{ secrets.SIGNING_KEY_PASSWORD }} \
           --v2-signing-enabled true \
+          --v3-signing-enabled false \
           --out "$SIGNED" \
           "$UNSIGNED"
         

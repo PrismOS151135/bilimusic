@@ -58,8 +58,9 @@
             <!-- 按钮1: 显示信息 -->
             <ImageButton
                 android:id="@+id/infoButton"
-                android:layout_width="40dp"
+                android:layout_width="50dp"
                 android:layout_height="40dp"
+                android:layout_weight="1"
                 android:background="?android:attr/selectableItemBackground"
                 android:src="@android:drawable/ic_menu_agenda"
                 android:scaleType="center"
@@ -68,8 +69,9 @@
             <!-- 按钮2: 播放模式 -->
             <ImageButton
                 android:id="@+id/modeButton"
-                android:layout_width="40dp"
+                android:layout_width="50dp"
                 android:layout_height="40dp"
+                android:layout_weight="1"
                 android:background="?android:attr/selectableItemBackground"
                 android:src="@android:drawable/ic_media_play"
                 android:scaleType="center"
@@ -78,8 +80,9 @@
             <!-- 按钮3: 上一首/快退 -->
             <ImageButton
                 android:id="@+id/prevButton"
-                android:layout_width="40dp"
+                android:layout_width="50dp"
                 android:layout_height="40dp"
+                android:layout_weight="1"
                 android:background="?android:attr/selectableItemBackground"
                 android:src="@android:drawable/ic_media_previous"
                 android:scaleType="center"
@@ -88,8 +91,9 @@
             <!-- 按钮4: 播放/暂停 -->
             <ImageButton
                 android:id="@+id/playButton"
-                android:layout_width="40dp"
+                android:layout_width="50dp"
                 android:layout_height="40dp"
+                android:layout_weight="1"
                 android:background="?android:attr/selectableItemBackground"
                 android:src="@android:drawable/ic_media_play"
                 android:scaleType="center"
@@ -98,8 +102,9 @@
             <!-- 按钮5: 下一首/快进 -->
             <ImageButton
                 android:id="@+id/nextButton"
-                android:layout_width="40dp"
+                android:layout_width="50dp"
                 android:layout_height="40dp"
+                android:layout_weight="1"
                 android:background="?android:attr/selectableItemBackground"
                 android:src="@android:drawable/ic_media_next"
                 android:scaleType="center"
@@ -107,13 +112,10 @@
 
             <!-- 设置按钮 -->
             <ImageButton
-                android:layout_marginLeft="50dp"
                 android:id="@+id/settingsButton"
-                android:layout_width="40dp"
+                android:layout_width="50dp"
                 android:layout_height="40dp"
-                android:layout_alignParentRight="true"
-                android:layout_centerVertical="true"
-                android:layout_marginRight="10dp"
+                android:layout_weight="1"
                 android:scaleType="center"
                 android:src="@android:drawable/ic_menu_manage" />
 

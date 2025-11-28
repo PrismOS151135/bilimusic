@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#3E3E3E">
+    <RelativeLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:background="#020202">
+        <!-- 当前播放文本 -->
+        <TextView
+            android:id="@+id/playtimeText"
+            android:layout_width="120dp"
+            android:layout_height="wrap_content"
+            android:padding="5dp"
+            android:text="@string/playtime"
+            android:layout_centerVertical="true"
+            android:textColor="#A4A4A4"
+            android:textSize="15sp" />
+        
+
+        <!-- 设置按钮 -->
+        <ImageButton
+            android:id="@+id/settingsButton"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_alignParentRight="true"
+            android:layout_centerVertical="true"
+            android:layout_marginRight="10dp"
+            android:src="@android:drawable/ic_menu_manage" />
+
+    </RelativeLayout>
+    <!-- 音乐列表 -->
+    <ListView
+        android:id="@+id/musicListView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:divider="#9B9B9B"
+        android:dividerHeight="1dp" />
+    <!-- 底部播放控制栏 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:background="#000000"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:elevation="4dp">
+
+        <!-- 当前播放信息 -->
+        <TextView
+            android:id="@+id/currentMusicText"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:text="@string/no_playing"
+            android:textSize="12sp"
+            android:textColor="@color/white"
+            android:paddingLeft="8dp" />
+
+        <!-- 控制按钮容器 -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="horizontal">
+
+            <!-- 按钮1: 显示信息 -->
+            <ImageButton
+                android:id="@+id/infoButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:src="@android:drawable/ic_menu_agenda"
+                android:scaleType="center"
+                android:contentDescription="@string/v1" />
+
+            <!-- 按钮2: 播放模式 -->
+            <ImageButton
+                android:id="@+id/modeButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:src="@android:drawable/ic_media_play"
+                android:scaleType="center"
+                android:contentDescription="@string/v2" />
+
+            <!-- 按钮3: 上一首/快退 -->
+            <ImageButton
+                android:id="@+id/prevButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:src="@android:drawable/ic_media_previous"
+                android:scaleType="center"
+                android:contentDescription="@string/v3" />
+
+            <!-- 按钮4: 播放/暂停 -->
+            <ImageButton
+                android:id="@+id/playButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:src="@android:drawable/ic_media_play"
+                android:scaleType="center"
+                android:contentDescription="@string/v4" />
+
+            <!-- 按钮5: 下一首/快进 -->
+            <ImageButton
+                android:id="@+id/nextButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:src="@android:drawable/ic_media_next"
+                android:scaleType="center"
+                android:contentDescription="@string/v5" />
+
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>

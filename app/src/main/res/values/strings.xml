@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">BiliMusic</string>
+    <string name="play_info">播放信息</string>
+    <string name="no_play">未播放</string>
+    <string name="play_mode">播放模式</string>
+    <string name="last_song">上一首</string>
+    <string name="play">播放</string>
+    <string name="next_song">下一首</string>
+    <string name="playtime">空</string>
+    <string name="no_playing">未播放</string>
+    <string name="v1">播放信息</string>
+    <string name="v2">播放模式</string>
+    <string name="v4">播放</string>
+    <string name="v3">上一首</string>
+    <string name="v5">下一首</string>
+    <string name="settings">设置</string>
+    <string name="v6">播放控制</string>
+    <string name="v7">定时关闭</string>
+    <string name="v8">播放速度（0.5-4.0）</string>
+    <string name="v9">文件夹设置</string>
+    <string name="v10">请输入音乐文件夹扫描路径</string>
+    <string name="t2">恢复</string>
+    <string name="t1">定时结束后自动关机</string>
+    <string name="device_admin_description">用于实现定时播放结束后的自动关机功能</string>
+</resources>

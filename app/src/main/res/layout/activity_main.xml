@@ -116,8 +116,10 @@
                 android:layout_width="50dp"
                 android:layout_height="40dp"
                 android:layout_weight="1"
+                android:layout_marginLeft="30dp"
                 android:scaleType="center"
-                android:src="@android:drawable/ic_menu_manage" />
+                android:src="@android:drawable/ic_menu_manage"
+                android:background="?android:attr/selectableItemBackground"/>
 
         </LinearLayout>
     </LinearLayout>

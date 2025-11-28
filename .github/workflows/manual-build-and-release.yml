@@ -33,35 +33,31 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    # ---------- 1. 构建未签名 Release APK ----------
     - name: Build unsigned Release APK
       run: ./gradlew assembleRelease
 
-    # ---------- 2. 恢复签名密钥 ----------
     - name: Restore keystore
       run: |
         echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 -d > release-key.jks
 
-    # ---------- 3. 使用 apksigner 手动签名（最稳方案） ----------
     - name: Sign APK with apksigner
       run: |
-        UNSIGNED_APK=./app/build/outputs/apk/release/app-release-unsigned.apk
-        SIGNED_APK=./app/build/outputs/apk/release/Bilimusic-${{ github.event.inputs.release_version }}-signed.apk
+        UNSIGNED="./app/build/outputs/apk/release/app-release-unsigned.apk"
+        SIGNED="./app/build/outputs/apk/release/Bilimusic-${{ github.event.inputs.release_version }}-signed.apk"
         
-        $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -r | head -n1)/apksigner sign \
+        $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V -r | head -n1)/apksigner sign \
           --ks release-key.jks \
           --ks-key-alias ${{ secrets.SIGNING_KEY_ALIAS }} \
           --ks-pass pass:${{ secrets.SIGNING_KEY_PASSWORD }} \
           --key-pass pass:${{ secrets.SIGNING_KEY_PASSWORD }} \
-          --out "$SIGNED_APK" \
-          "$UNSIGNED_APK"
+          --v2-signing-enabled true \
+          --v3-signing-enabled true \
+          --out "$SIGNED" \
+          "$UNSIGNED"
         
-        echo "签名完成！"
-        echo "signed_apk_path=$SIGNED_APK" >> $GITHUB_OUTPUT
-      env:
-        ANDROID_HOME: /usr/local/lib/android/sdk
+        echo "签名成功！"
+        echo "signed_apk_path=$SIGNED" >> $GITHUB_OUTPUT
 
-    # ---------- 4. 删除旧标签与Release ----------
     - name: Delete existing tag and release
       run: |
         TAG="${{ github.event.inputs.release_version }}"
@@ -69,7 +65,6 @@ jobs:
         curl -s -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
           "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG" || true
 
-    # ---------- 5. 创建 Release ----------
     - name: Create GitHub Release
       id: create_release
       uses: actions/create-release@v1
@@ -82,7 +77,6 @@ jobs:
         draft: false
         prerelease: false
 
-    # ---------- 6. 上传签名后的 APK ----------
     - name: Upload Signed APK
       uses: actions/upload-release-asset@v1
       env:
@@ -93,7 +87,6 @@ jobs:
         asset_name: Bilimusic-${{ github.event.inputs.release_version }}-signed.apk
         asset_content_type: application/vnd.android.package-archive
 
-    # ---------- 7. 清理敏感文件 ----------
     - name: Clean up
       if: always()
       run: rm -f release-key.jks

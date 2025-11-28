@@ -10,27 +10,27 @@
         android:layout_height="50dp"
         android:background="#020202">
         <!-- 当前播放文本 -->
+
+        <!-- 当前播放信息 -->
         <TextView
             android:id="@+id/playtimeText"
             android:layout_width="120dp"
-            android:layout_height="wrap_content"
-            android:padding="5dp"
+            android:layout_height="match_parent"
             android:text="@string/playtime"
-            android:layout_centerVertical="true"
+            android:padding="10dp"
             android:textColor="#A4A4A4"
-            android:textSize="15sp" />
-        
+            android:textSize="15sp"
+            android:gravity="center_vertical"/>
 
-        <!-- 设置按钮 -->
-        <ImageButton
-            android:id="@+id/settingsButton"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
-            android:layout_alignParentRight="true"
-            android:layout_centerVertical="true"
-            android:layout_marginRight="10dp"
-            android:src="@android:drawable/ic_menu_manage" />
-
+        <TextView
+            android:id="@+id/currentMusicText"
+            android:layout_width="200dp"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="@string/no_playing"
+            android:textSize="12sp"
+            android:textColor="@color/white"
+            android:layout_alignParentRight="true" />
     </RelativeLayout>
     <!-- 音乐列表 -->
     <ListView
@@ -46,20 +46,8 @@
         android:layout_height="60dp"
         android:background="#000000"
         android:orientation="horizontal"
-        android:padding="8dp"
+        android:padding="10dp"
         android:elevation="4dp">
-
-        <!-- 当前播放信息 -->
-        <TextView
-            android:id="@+id/currentMusicText"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center_vertical"
-            android:text="@string/no_playing"
-            android:textSize="12sp"
-            android:textColor="@color/white"
-            android:paddingLeft="8dp" />
 
         <!-- 控制按钮容器 -->
         <LinearLayout
@@ -116,6 +104,18 @@
                 android:src="@android:drawable/ic_media_next"
                 android:scaleType="center"
                 android:contentDescription="@string/v5" />
+
+            <!-- 设置按钮 -->
+            <ImageButton
+                android:layout_marginLeft="50dp"
+                android:id="@+id/settingsButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_alignParentRight="true"
+                android:layout_centerVertical="true"
+                android:layout_marginRight="10dp"
+                android:scaleType="center"
+                android:src="@android:drawable/ic_menu_manage" />
 
         </LinearLayout>
     </LinearLayout>

@@ -1,0 +1,91 @@
+name: Manual Build and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+      release_notes:
+        description: 'Release notes'
+        required: false
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build unsigned Release APK
+      run: ./gradlew assembleRelease
+
+    - name: Restore keystore
+      run: |
+        echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 -d > release-key.jks
+
+    - name: Sign APK with apksigner
+      run: |
+        UNSIGNED="./app/build/outputs/apk/release/app-release-unsigned.apk"
+        SIGNED="./app/build/outputs/apk/release/Bilimusic-${{ github.event.inputs.release_version }}-signed.apk"
+        
+        $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V -r | head -n1)/apksigner sign \
+          --ks release-key.jks \
+          --ks-key-alias ${{ secrets.SIGNING_KEY_ALIAS }} \
+          --ks-pass pass:${{ secrets.SIGNING_KEY_PASSWORD }} \
+          --key-pass pass:${{ secrets.SIGNING_KEY_PASSWORD }} \
+          --v2-signing-enabled true \
+          --v3-signing-enabled true \
+          --out "$SIGNED" \
+          "$UNSIGNED"
+        
+        echo "签名成功！"
+        echo "signed_apk_path=$SIGNED" >> $GITHUB_OUTPUT
+
+    - name: Delete existing tag and release
+      run: |
+        TAG="${{ github.event.inputs.release_version }}"
+        git ls-remote --tags origin | grep -q "refs/tags/$TAG$" && git push origin --delete "$TAG" || true
+        curl -s -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG" || true
+
+    - name: Create GitHub Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.event.inputs.release_version }}
+        release_name: Bilimusic ${{ github.event.inputs.release_version }}（正式签名）
+        body: ${{ github.event.inputs.release_notes }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Signed APK
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./app/build/outputs/apk/release/Bilimusic-${{ github.event.inputs.release_version }}-signed.apk
+        asset_name: Bilimusic-${{ github.event.inputs.release_version }}-signed.apk
+        asset_content_type: application/vnd.android.package-archive
+
+    - name: Clean up
+      if: always()
+      run: rm -f release-key.jks

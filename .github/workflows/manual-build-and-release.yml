@@ -1,4 +1,4 @@
-name: Manual Build and Release (Signed)
+name: Manual Build and Release
 
 on:
   workflow_dispatch:
@@ -10,7 +10,6 @@ on:
       release_notes:
         description: 'Release notes'
         required: false
-        default: '正式签名版发布'
 
 jobs:
   build-and-release:

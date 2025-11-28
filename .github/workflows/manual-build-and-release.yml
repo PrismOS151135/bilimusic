@@ -16,6 +16,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:  # 新增：授予必要权限
+      contents: write
 
     steps:
     - name: Checkout repository

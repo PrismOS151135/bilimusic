@@ -1,4 +1,4 @@
-name: Manual Build and Release
+name: Manual Build and Release (Signed)
 
 on:
   workflow_dispatch:
@@ -10,19 +10,19 @@ on:
       release_notes:
         description: 'Release notes'
         required: false
-        default: 'Manual build and release'
+        default: 'Manual signed release'
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write      # 创建/删除标签、Release、上传资产
+      contents: write
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0       # 必须完整历史才能删除旧标签
+        fetch-depth: 0
 
     - name: Set up JDK 17
       uses: actions/setup-java@v4
@@ -33,35 +33,49 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Build Release APK
+    # ---------- 开始签名配置 ----------
+    - name: Decode and restore signing keystore
+      run: |
+        echo "${{ secrets.SIGNING_KEY_BASE64 }}" | base64 -d > ./bilimusic-release-key.jks
+
+    - name: Create signingConfig in gradle.properties (temporary)
+      run: |
+        cat >> gradle.properties << EOF
+        MYAPP_RELEASE_STORE_FILE=../bilimusic-release-key.jks
+        MYAPP_RELEASE_KEY_ALIAS=${{ secrets.SIGNING_KEY_ALIAS }}
+        MYAPP_RELEASE_KEY_PASSWORD=${{ secrets.SIGNING_KEY_PASSWORD }}
+        MYAPP_RELEASE_STORE_PASSWORD=${{ secrets.SIGNING_STORE_PASSWORD }}
+        EOF
+
+    # ---------- 构建已签名的 APK ----------
+    - name: Build Signed Release APK
       run: ./gradlew assembleRelease
 
-    - name: Locate the actual APK file
+    # ---------- 查找签名后的 APK（文件名通常为 app-release.apk） ----------
+    - name: Locate signed APK
       id: apk
       run: |
-        APK_PATH=$(find ./app/build/outputs/apk/release -name "*.apk" | head -n1)
-        [ -z "$APK_PATH" ] && { echo "未找到APK文件"; exit 1; }
-        echo "找到APK: $APK_PATH"
+        APK_PATH=$(find ./app/build/outputs/apk/release -name "app-release.apk" | head -n1)
+        [ -z "$APK_PATH" ] && { echo "未找到签名后的 app-release.apk"; exit 1; }
+        echo "已找到签名APK: $APK_PATH"
         echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
-        echo "apk_name=$(basename "$APK_PATH")" >> $GITHUB_OUTPUT
 
-    # 关键修复：自动删除已存在的同名标签和Release
-    - name: Delete existing tag and release (if any)
+    # ---------- 自动删除旧标签与Release（避免冲突） ----------
+    - name: Delete existing tag and release
       run: |
         TAG="${{ github.event.inputs.release_version }}"
         if git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
-          echo "检测到标签 $TAG 已存在，正在删除..."
+          echo "删除旧标签 $TAG"
           git push origin --delete "$TAG" || true
         fi
-        # 删除可能的旧Release（通过GitHub API）
         RELEASE_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG" | jq -r .id)
+          "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG" | jq -r .id || echo "")
         if [ "$RELEASE_ID" != "null" ] && [ -n "$RELEASE_ID" ]; then
-          echo "删除旧Release ID: $RELEASE_ID"
           curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID"
         fi
 
+    # ---------- 创建 Release ----------
     - name: Create GitHub Release
       id: create_release
       uses: actions/create-release@v1
@@ -69,17 +83,23 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ github.event.inputs.release_version }}
-        release_name: Release ${{ github.event.inputs.release_version }}
+        release_name: Release ${{ github.event.inputs.release_version }} (Signed)
         body: ${{ github.event.inputs.release_notes }}
         draft: false
         prerelease: false
 
-    - name: Upload APK to Release
+    # ---------- 上传已签名 APK ----------
+    - name: Upload Signed APK
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ${{ steps.apk.outputs.apk_path }}
-        asset_name: Bilimusic-${{ github.event.inputs.release_version }}.apk
+        asset_name: Bilimusic-${{ github.event.inputs.release_version }}-signed.apk
         asset_content_type: application/vnd.android.package-archive
+
+    # ---------- 可选：清理敏感文件 ----------
+    - name: Clean up keystore
+      if: always()
+      run: rm -f bilimusic-release-key.jks

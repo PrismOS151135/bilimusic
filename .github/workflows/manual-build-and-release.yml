@@ -16,11 +16,13 @@ jobs:
   build-and-release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write                     # 必要：创建 Release 和上传资产
+      contents: write      # 创建/删除标签、Release、上传资产
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0       # 必须完整历史才能删除旧标签
 
     - name: Set up JDK 17
       uses: actions/setup-java@v4
@@ -34,24 +36,31 @@ jobs:
     - name: Build Release APK
       run: ./gradlew assembleRelease
 
-    # 新增：明确查找并显示实际生成的 APK 文件名（便于调试）
-    - name: List generated APKs
-      run: |
-        echo "=== APK 输出目录内容 ==="
-        ls -R ./app/build/outputs/apk/release/ || echo "目录不存在"
-
-    # 关键修复：使用通配符匹配真实存在的 unsigned APK
     - name: Locate the actual APK file
       id: apk
       run: |
         APK_PATH=$(find ./app/build/outputs/apk/release -name "*.apk" | head -n1)
-        if [ -z "$APK_PATH" ]; then
-          echo "错误：未找到任何 APK 文件"
-          exit 1
-        fi
-        echo "找到 APK: $APK_PATH"
+        [ -z "$APK_PATH" ] && { echo "未找到APK文件"; exit 1; }
+        echo "找到APK: $APK_PATH"
         echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
         echo "apk_name=$(basename "$APK_PATH")" >> $GITHUB_OUTPUT
+
+    # 关键修复：自动删除已存在的同名标签和Release
+    - name: Delete existing tag and release (if any)
+      run: |
+        TAG="${{ github.event.inputs.release_version }}"
+        if git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
+          echo "检测到标签 $TAG 已存在，正在删除..."
+          git push origin --delete "$TAG" || true
+        fi
+        # 删除可能的旧Release（通过GitHub API）
+        RELEASE_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG" | jq -r .id)
+        if [ "$RELEASE_ID" != "null" ] && [ -n "$RELEASE_ID" ]; then
+          echo "删除旧Release ID: $RELEASE_ID"
+          curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID"
+        fi
 
     - name: Create GitHub Release
       id: create_release
@@ -72,5 +81,5 @@ jobs:
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ${{ steps.apk.outputs.apk_path }}
-        asset_name: Bilimusic-${{ github.event.inputs.release_version }}.apk   # 自定义友好文件名
+        asset_name: Bilimusic-${{ github.event.inputs.release_version }}.apk
         asset_content_type: application/vnd.android.package-archive

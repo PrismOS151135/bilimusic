@@ -30,7 +30,9 @@ import androidx.media3.exoplayer.ExoPlayer;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 public class MainActivity extends Activity {
@@ -40,13 +42,13 @@ public class MainActivity extends Activity {
     private TextView playtimeText;
     private ImageButton settingsButton, infoButton, modeButton, prevButton, playButton, nextButton;
 
-    private final List<String> musicFolders = new ArrayList<>();
-    private final List<String> shuffledList = new ArrayList<>();
+    public static final List<String> musicFolders = new ArrayList<>();
+    private static final List<String> shuffledList = new ArrayList<>();
     private ArrayAdapter<String> adapter;
-    private ExoPlayer exoPlayer;
+    private static ExoPlayer exoPlayer;
 
-    private int currentPosition = -1;
-    private PlayMode playMode = PlayMode.SEQUENTIAL;
+    public static int currentPosition = -1;
+    private static PlayMode playMode = PlayMode.SEQUENTIAL;
     private boolean isPlaying = false;
     private float playSpeed = 1.0f;
 
@@ -74,7 +76,7 @@ public class MainActivity extends Activity {
     private static final String KEY_IS_PLAYING = "is_playing";
     private static final String KEY_PLAY_MODE = "play_mode";
 
-    private static final String DEFAULT_SCAN_PATH = "/storage/sdcard1/Android/media/com.RobinNotBad.BiliClient/Folder1";
+    private static final String DEFAULT_SCAN_PATH = "/storage/sdcard1/1/Folder1";
     private static final String DEFAULT_MUSIC_FILE = "video.mp4";
 
     private String SCAN_PATH;
@@ -83,6 +85,7 @@ public class MainActivity extends Activity {
     private MusicService musicService;
     private boolean isServiceBound = false;
     private boolean shouldPlayInBackground = false;
+    private final Map<String,String> folderPathMap = new HashMap<>();
 
     enum PlayMode {
         SEQUENTIAL,
@@ -126,11 +129,10 @@ public class MainActivity extends Activity {
 
         setupSharedPreferences();
         initViews();
-        scanMusicFolders();
         setupExoPlayer();
         setupButtonListeners();
         setupSleepTimer();
-
+        scanMusicFolders();
         startAndBindMusicService();
 
         playSpeed = sharedPreferences.getFloat(KEY_PLAY_SPEED, 1.0f);
@@ -197,31 +199,26 @@ public class MainActivity extends Activity {
      */
     private void prepareMusicForPlayback(int position, long playbackPosition) {
         if (position < 0 || position >= musicFolders.size()) return;
-
         try {
             String folderName = musicFolders.get(position);
-            File musicFile = findMusicFile(folderName);
-
-            if (musicFile != null && musicFile.exists()) {
+            //用Hash进行查找
+            File musicFile = new File(folderPathMap.get(folderName),MUSIC_FILE);
+            if (musicFile.exists()) {
                 Uri audioUri = Uri.fromFile(musicFile);
                 MediaItem mediaItem = MediaItem.fromUri(audioUri);
 
                 exoPlayer.setMediaItem(mediaItem);
                 exoPlayer.prepare();
-
                 // 设置播放位置但不开始播放
                 exoPlayer.seekTo(playbackPosition);
                 exoPlayer.pause(); // 确保暂停状态
-
                 if (playSpeed != 1.0f) {
                     setPlaySpeed(playSpeed);
                 }
-
                 // 更新服务状态
                 if (isServiceBound && musicService != null) {
                     musicService.updatePlaybackState(currentPosition, false); // 设置为未播放状态
                 }
-
             } else {
                 Toast.makeText(this, "找不到音乐文件: " + folderName, Toast.LENGTH_SHORT).show();
             }
@@ -235,7 +232,6 @@ public class MainActivity extends Activity {
         editor.putInt(KEY_LAST_POSITION, currentPosition);
         editor.putBoolean(KEY_IS_PLAYING, isPlaying);
         editor.putString(KEY_PLAY_MODE, playMode.name());
-
         if (exoPlayer != null) {
             editor.putLong(KEY_LAST_PLAYBACK_POSITION, exoPlayer.getCurrentPosition());
         } else {
@@ -266,13 +262,16 @@ public class MainActivity extends Activity {
                 if (folderNameText != null) {
                     folderNameText.setText(getItem(position));
                 }
-
-                if (position == currentPosition && isPlaying) {
-                    if (playingIndicator != null) playingIndicator.setVisibility(View.VISIBLE);
+                if (position == currentPosition) {
+                    if(isPlaying){
+                        playingIndicator.setVisibility(View.VISIBLE);
+                    }else {
+                        playingIndicator.setVisibility(View.GONE);
+                    }
                     if (folderNameText != null)
                         folderNameText.setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
                 } else {
-                    if (playingIndicator != null) playingIndicator.setVisibility(View.GONE);
+                    playingIndicator.setVisibility(View.GONE);
                     if (folderNameText != null)
                         folderNameText.setTextColor(getResources().getColor(android.R.color.white));
                 }
@@ -284,21 +283,16 @@ public class MainActivity extends Activity {
             musicListView.setAdapter(adapter);
             musicListView.setOnItemClickListener((parent, view, position, id) -> playMusic(position));
         });
-
         updateTimeDisplay();
         timeUpdateHandler.post(timeUpdateRunnable);
     }
 
     @SuppressLint({"DefaultLocale", "SetTextI18n"})
     private void updateTimeDisplay() {
-        if (playtimeText == null) {
-            return;
-        }
-
         if (exoPlayer != null && isPlaying) {
             try {
-                long currentPosition = exoPlayer.getCurrentPosition();
-                long duration = exoPlayer.getDuration();
+                long currentPosition = exoPlayer.getCurrentPosition();//播放时间
+                long duration = exoPlayer.getDuration();//完整时间
 
                 String currentTime = formatTime(currentPosition);
                 String totalTime = formatTime(duration);
@@ -312,14 +306,13 @@ public class MainActivity extends Activity {
         }
     }
 
-    @SuppressLint("DefaultLocale")
+    @SuppressLint("DefaultLocale")//时间格式化
     private String formatTime(long milliseconds) {
         long totalSeconds = milliseconds / 1000;
         long minutes = totalSeconds / 60;
         long seconds = totalSeconds % 60;
         return String.format("%02d:%02d", minutes, seconds);
     }
-
     private void setPlaySpeed(float speed) {
         this.playSpeed = speed;
 
@@ -345,9 +338,7 @@ public class MainActivity extends Activity {
             // 初始化打乱列表
             shuffledList.addAll(musicFolders);
             // 如果当前是随机模式，打乱列表
-            if (playMode == PlayMode.RANDOM) {
-                Collections.shuffle(shuffledList);
-            }
+            Collections.shuffle(shuffledList);
         } else {
             Toast.makeText(this, "扫描路径不存在: " + SCAN_PATH, Toast.LENGTH_LONG).show();
         }
@@ -364,6 +355,7 @@ public class MainActivity extends Activity {
                 File musicFile = new File(file, MUSIC_FILE);
                 if (musicFile.exists() && musicFile.isFile()) {
                     musicFolders.add(file.getName());
+                    folderPathMap.put(file.getName(), file.getAbsolutePath());
                 }
                 scanDirectory(file);
             }
@@ -412,16 +404,14 @@ public class MainActivity extends Activity {
 
         switch (playMode) {
             case SEQUENTIAL:
-                if (currentPosition == -1) {
-                    Toast.makeText(this, "下一首: " + musicFolders.get(0), Toast.LENGTH_SHORT).show();
-                } else {
+                if (currentPosition > -1) {
                     int nextPos = (currentPosition + 1) % musicFolders.size();
                     Toast.makeText(this, "下一首: " + musicFolders.get(nextPos), Toast.LENGTH_SHORT).show();
                 }
                 break;
             case RANDOM:
                 if (shuffledList.isEmpty()) {
-                    Toast.makeText(this, "播放列表为空", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "播放列表为空,请重启应用", Toast.LENGTH_SHORT).show();
                 } else {
                     int currentShufflePos = getCurrentShufflePosition();
                     if (currentShufflePos == -1) {
@@ -612,16 +602,14 @@ public class MainActivity extends Activity {
     @SuppressLint("SetTextI18n")
     private void playMusic(int position) {
         if (position < 0 || position >= musicFolders.size()) return;
-
         try {
             if (exoPlayer.isPlaying()) {
                 exoPlayer.stop();
             }
-
             String folderName = musicFolders.get(position);
-            File musicFile = findMusicFile(folderName);
+            File musicFile = new File(folderPathMap.get(folderName),MUSIC_FILE);
 
-            if (musicFile != null && musicFile.exists()) {
+            if (musicFile.exists()) {
                 Uri audioUri = Uri.fromFile(musicFile);
                 MediaItem mediaItem = MediaItem.fromUri(audioUri);
 
@@ -655,37 +643,13 @@ public class MainActivity extends Activity {
         }
     }
 
-    private File findMusicFile(String folderName) {
-        return findMusicFileRecursive(new File(SCAN_PATH), folderName);
-    }
-
-    private File findMusicFileRecursive(File dir, String targetFolderName) {
-        File[] files = dir.listFiles();
-        if (files == null) return null;
-
-        for (File file : files) {
-            if (file.isDirectory()) {
-                if (file.getName().equals(targetFolderName)) {
-                    File musicFile = new File(file, MUSIC_FILE);
-                    if (musicFile.exists()) {
-                        return musicFile;
-                    }
-                }
-                File result = findMusicFileRecursive(file, targetFolderName);
-                if (result != null) return result;
-            }
-        }
-        return null;
-    }
-
-    private void togglePlayPause() {
+    public void togglePlayPause() {
         if (exoPlayer == null) return;
 
         if (isPlaying) {
             // 暂停播放
             exoPlayer.pause();
             isPlaying = false;
-            playButton.setImageResource(android.R.drawable.ic_media_play);
             cancelSleepTimer();
             timeUpdateHandler.removeCallbacks(timeUpdateRunnable);
         } else {
@@ -703,7 +667,6 @@ public class MainActivity extends Activity {
                 // 开始播放
                 exoPlayer.play();
                 isPlaying = true;
-                playButton.setImageResource(android.R.drawable.ic_media_pause);
                 timeUpdateHandler.post(timeUpdateRunnable);
 
                 // 更新服务状态
@@ -722,7 +685,6 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "没有可播放的音乐", Toast.LENGTH_SHORT).show();
             return;
         }
-
         int nextPos;
         switch (playMode) {
             case RANDOM:
@@ -755,7 +717,7 @@ public class MainActivity extends Activity {
         playMusic(nextPos);
     }
 
-    private void playPrevious() {
+    public void playPrevious() {
         if (musicFolders.isEmpty()) {
             Toast.makeText(this, "没有可播放的音乐", Toast.LENGTH_SHORT).show();
             return;
@@ -820,8 +782,7 @@ public class MainActivity extends Activity {
     }
 
     private void fastForward() {
-        //不判断exoPlayer.isPlaying()了
-        if (exoPlayer != null) {
+        if (exoPlayer != null && isPlaying) {
             long current = exoPlayer.getCurrentPosition();
             exoPlayer.seekTo(current + 5000);
             updateTimeDisplay();
@@ -831,8 +792,7 @@ public class MainActivity extends Activity {
     }
 
     private void fastRewind() {
-        //不判断exoPlayer.isPlaying()了
-        if (exoPlayer != null ) {
+        if (exoPlayer != null && isPlaying) {
             long current = exoPlayer.getCurrentPosition();
             exoPlayer.seekTo(Math.max(0, current - 5000));
             updateTimeDisplay();

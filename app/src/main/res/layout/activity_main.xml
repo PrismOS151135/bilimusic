@@ -1,127 +1,197 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#3E3E3E">
+    android:background="#333333">
     <RelativeLayout
-        android:id="@+id/topBar"
         android:layout_width="match_parent"
         android:layout_height="50dp"
-        android:background="#020202">
-        <!-- 当前播放文本 -->
-
-        <!-- 当前播放信息 -->
+        android:orientation="horizontal"
+        android:background="@color/black">
         <TextView
-            android:id="@+id/playtimeText"
-            android:layout_width="120dp"
+            android:id="@+id/electricQuantity"
+            android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:text="@string/playtime"
-            android:padding="10dp"
-            android:textColor="#A4A4A4"
-            android:textSize="15sp"
-            android:gravity="center_vertical"/>
-
-        <TextView
-            android:id="@+id/currentMusicText"
-            android:layout_width="200dp"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:text="@string/no_playing"
-            android:textSize="12sp"
+            android:layout_marginLeft="6dp"
+            android:text="电量:100%"
             android:textColor="@color/white"
-            android:layout_alignParentRight="true" />
+            android:textSize="16sp"
+            android:gravity="center_vertical"/>
+        <TextView
+            android:id="@+id/nowTime"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:text="上午10:08"
+            android:textSize="16sp"
+            android:textColor="@color/white"
+            android:gravity="center_vertical"
+            android:layout_marginRight="10dp"
+            android:layout_alignParentRight="true"/>
     </RelativeLayout>
-    <!-- 音乐列表 -->
-    <ListView
-        android:id="@+id/musicListView"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:divider="#9B9B9B"
-        android:dividerHeight="1dp" />
-    <!-- 底部播放控制栏 -->
+
+
+    <!-- 当前播放信息 - 移到顶部中心位置 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="60dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:orientation="vertical">
+        <!-- 中间留空区域 - 用于未来显示专辑封面或歌词 -->
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:alpha="0.8"
+            android:src="@drawable/ic_launcher"
+            tools:ignore="ContentDescription" />
+
+        <TextView
+            android:id="@+id/currentMusicText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="@string/no_playing"
+            android:textColor="@color/white"
+            android:textSize="16sp" />
+
+
+    </LinearLayout>
+
+    <!-- 底部播放控制栏 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
         android:background="#000000"
-        android:orientation="horizontal"
-        android:padding="10dp"
-        android:elevation="4dp">
+        android:orientation="vertical">
+
+        <!-- 播放进度条占位 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:paddingTop="10dp"
+            android:paddingBottom="5dp">
+
+            <TextView
+                android:id="@+id/PlayingTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/_0_00"
+                android:textColor="#A4A4A4"
+                android:textSize="15sp"/>
+
+            <ProgressBar
+                android:id="@+id/musicProgressBar"
+                style="@android:style/Widget.ProgressBar.Horizontal"
+                android:layout_width="190dp"
+                android:layout_height="5dp"
+                android:layout_marginRight="15dp"
+                android:layout_marginLeft="15dp"
+                android:max="500"
+                android:progress="0"
+                android:progressDrawable="@drawable/progress"/>
+
+            <TextView
+                android:id="@+id/allPlayTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/_4_30"
+                android:textColor="#A4A4A4"
+                android:textSize="15sp"/>
+        </LinearLayout>
 
         <!-- 控制按钮容器 -->
         <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:orientation="horizontal">
+            android:layout_width="match_parent"
+            android:layout_height="45dp"
+            android:orientation="horizontal"
+            android:gravity="center">
 
-            <!-- 按钮1: 显示信息 -->
-            <ImageButton
-                android:id="@+id/infoButton"
-                android:layout_width="50dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:background="?android:attr/selectableItemBackground"
-                android:src="@android:drawable/ic_menu_agenda"
-                android:scaleType="center"
-                android:contentDescription="@string/v1" />
-
-            <!-- 按钮2: 播放模式 -->
+            <!-- 播放模式 -->
             <ImageButton
                 android:id="@+id/modeButton"
-                android:layout_width="50dp"
+                android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:layout_weight="1"
                 android:background="?android:attr/selectableItemBackground"
                 android:src="@android:drawable/ic_media_play"
                 android:scaleType="center"
-                android:contentDescription="@string/v2" />
+                android:contentDescription="@string/v2"/>
 
-            <!-- 按钮3: 上一首/快退 -->
+            <!-- 上一首 -->
             <ImageButton
                 android:id="@+id/prevButton"
-                android:layout_width="50dp"
+                android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_weight="1"
                 android:background="?android:attr/selectableItemBackground"
                 android:src="@android:drawable/ic_media_previous"
                 android:scaleType="center"
-                android:contentDescription="@string/v3" />
+                android:contentDescription="@string/v3"/>
 
-            <!-- 按钮4: 播放/暂停 -->
+            <!-- 播放/暂停 -->
             <ImageButton
                 android:id="@+id/playButton"
-                android:layout_width="50dp"
+                android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_weight="1"
                 android:background="?android:attr/selectableItemBackground"
                 android:src="@android:drawable/ic_media_play"
                 android:scaleType="center"
-                android:contentDescription="@string/v4" />
+                android:contentDescription="@string/v4"/>
 
-            <!-- 按钮5: 下一首/快进 -->
+            <!-- 下一首 -->
             <ImageButton
                 android:id="@+id/nextButton"
-                android:layout_width="50dp"
+                android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_weight="1"
+                android:layout_marginEnd="5dp"
                 android:background="?android:attr/selectableItemBackground"
                 android:src="@android:drawable/ic_media_next"
                 android:scaleType="center"
-                android:contentDescription="@string/v5" />
+                android:contentDescription="@string/v5"/>
 
-            <!-- 设置按钮 -->
+            <View
+                android:layout_width="1dp"
+                android:layout_height="40dp"
+                android:background="#929292" />
+            <!-- 显示信息 -->
+            <ImageButton
+                android:id="@+id/infoButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="5dp"
+                android:scaleType="center"
+                android:background="?android:attr/selectableItemBackground"
+                android:src="@android:drawable/ic_menu_agenda"
+                android:contentDescription="@string/v1"/>
+
+        <!-- 功能按钮 -->
             <ImageButton
                 android:id="@+id/settingsButton"
-                android:layout_width="50dp"
-                android:layout_height="40dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginLeft="30dp"
                 android:scaleType="center"
                 android:src="@android:drawable/ic_menu_manage"
-                android:background="?android:attr/selectableItemBackground"/>
+                android:background="?android:attr/selectableItemBackground"
+                tools:ignore="ContentDescription" />
+
+            <ImageButton
+                android:id="@+id/musicListButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_weight="1"
+                android:scaleType="center"
+                android:alpha="0.7"
+                android:src="@android:drawable/ic_dialog_dialer"
+                android:background="?android:attr/selectableItemBackground"
+                tools:ignore="ContentDescription" />
 
         </LinearLayout>
     </LinearLayout>
-
 </LinearLayout>

@@ -22,4 +22,7 @@
     <string name="t2">恢复</string>
     <string name="t1">定时结束后自动关机</string>
     <string name="device_admin_description">用于实现定时播放结束后的自动关机功能</string>
+    <string name="m2">音乐列表</string>
+    <string name="_0_00">0:00</string>
+    <string name="_4_30">4:30</string>
 </resources>

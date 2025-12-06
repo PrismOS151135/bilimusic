@@ -15,10 +15,10 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:padding="5dp"
+            android:padding="10dp"
             android:text="@string/settings"
             android:textColor="#FFFFFF"
-            android:textSize="25sp" />
+            android:textSize="20sp" />
     </RelativeLayout>
 
     <!-- 定时关闭和播放速度设置 -->
@@ -64,7 +64,7 @@
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="75dp"
+        android:layout_height="wrap_content"
         android:orientation="horizontal">
 
         <EditText
@@ -86,5 +86,12 @@
             android:layout_weight="1"
             android:text="@string/t2" />
     </LinearLayout>
+    <CheckBox
+        android:id="@+id/isPowerOffBox"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="定时结束自动关机"
+        android:textColor="@color/white"
+        android:textSize="12dp"/>
 
 </LinearLayout>

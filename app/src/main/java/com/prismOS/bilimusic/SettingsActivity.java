@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.Toast;
 
@@ -13,6 +14,7 @@ public class SettingsActivity extends Activity {
     private EditText TimedOff;
     private EditText Playspeed; // 播放速度输入框
     private Button resetButton;
+    private CheckBox isPowerOffBox;
     private SharedPreferences sharedPreferences;
 
     private static final String PREFS_NAME = "MusicPlayerPrefs";
@@ -22,6 +24,8 @@ public class SettingsActivity extends Activity {
     // 默认值
     private static final String DEFAULT_SCAN_PATH = "/storage/sdcard1/Android/media/com.RobinNotBad.BiliClient/Folder1";
     public static final String KEY_TIMED_OFF = "timed_off_minutes";
+    public static final String KEY_IS_POWER_OFF = "false";
+    private boolean isPowerOff;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,6 +43,7 @@ public class SettingsActivity extends Activity {
         resetButton = findViewById(R.id.resetButton);
         TimedOff = findViewById(R.id.TimedOff);
         Playspeed = findViewById(R.id.Playspeed); // 初始化播放速度输入框
+        isPowerOffBox = findViewById(R.id.isPowerOffBox);
     }
 
     private void setupSharedPreferences() {
@@ -50,10 +55,11 @@ public class SettingsActivity extends Activity {
         scanPathEditText.setText(currentScanPath);
         int currentTimedOff = sharedPreferences.getInt(KEY_TIMED_OFF, 0);
         TimedOff.setText(currentTimedOff == 0 ? "" : String.valueOf(currentTimedOff));
-
         // 加载播放速度设置
         float currentPlaySpeed = sharedPreferences.getFloat(KEY_PLAY_SPEED, 1.0f);
         Playspeed.setText(String.valueOf(currentPlaySpeed));
+        isPowerOff = sharedPreferences.getBoolean(KEY_IS_POWER_OFF, false);
+        isPowerOffBox.setChecked(isPowerOff);
     }
 
     private void setupButtonListeners() {
@@ -122,6 +128,12 @@ public class SettingsActivity extends Activity {
             }
         }
 
+        boolean isPowerOff1 = isPowerOffBox.isChecked();
+        if (isPowerOff1 != isPowerOff){
+            editor.putBoolean(KEY_IS_POWER_OFF, isPowerOff1);
+            hasChanges = true;
+        }
+
         if (hasChanges) {
             editor.apply();
             Toast.makeText(this, "设置已自动保存", Toast.LENGTH_SHORT).show();
@@ -134,6 +146,7 @@ public class SettingsActivity extends Activity {
         editor.remove(KEY_MUSIC_FILE);
         editor.remove(KEY_TIMED_OFF);
         editor.remove(KEY_PLAY_SPEED); // 重置播放速度
+        editor.remove("KEY_IS_POWER_OFF");
         editor.apply();
 
         // 重新加载默认设置

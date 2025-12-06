@@ -2,21 +2,23 @@ package com.prismOS.bilimusic;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.ArrayAdapter;
 import android.widget.ImageButton;
-import android.widget.ImageView;
-import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -30,62 +32,76 @@ import androidx.media3.exoplayer.ExoPlayer;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
+import java.text.SimpleDateFormat;
 
 public class MainActivity extends Activity {
 
-    private ListView musicListView;
     private TextView currentMusicText;
-    private TextView playtimeText;
-    private ImageButton settingsButton, infoButton, modeButton, prevButton, playButton, nextButton;
-
+    private TextView PlayingTime, allPlayTime;
+    private ImageButton settingsButton, infoButton, modeButton, prevButton, playButton, nextButton, musicListButton;
+    private ProgressBar musicProgressBar;
     public static final List<String> musicFolders = new ArrayList<>();
-    private static final List<String> shuffledList = new ArrayList<>();
-    private ArrayAdapter<String> adapter;
+    public static final List<String> shuffledList = new ArrayList<>();
     private static ExoPlayer exoPlayer;
 
     public static int currentPosition = -1;
     private static PlayMode playMode = PlayMode.SEQUENTIAL;
-    private boolean isPlaying = false;
+    public static boolean isPlaying = false;
     private float playSpeed = 1.0f;
-
     private final Handler longPressHandler = new Handler();
     private final Handler keyLongPressHandler = new Handler();
     private final Handler cooldownHandler = new Handler();
-    private final Handler timeUpdateHandler = new Handler();
+    private final Handler playTimeUpdateHandler = new Handler();
 
     private final Handler sleepTimerHandler = new Handler();
     private Runnable sleepTimerRunnable;
     private boolean isSleepTimerActive = false;
-
+    private boolean isPowerOff = false;
     private boolean isKeyLongPress = false;
-
     private boolean isCooldownActive = false;
     private static final long COOLDOWN_DURATION = 1000;
 
     private SharedPreferences sharedPreferences;
-    private static final String PREFS_NAME = "MusicPlayerPrefs";
-    private static final String KEY_SCAN_PATH = "scan_path";
-    private static final String KEY_MUSIC_FILE = "music_file";
+    protected static final String PREFS_NAME = "MusicPlayerPrefs";
+    protected static final String KEY_SCAN_PATH = "scan_path";
+    protected static final String KEY_MUSIC_FILE = "music_file";
     private static final String KEY_PLAY_SPEED = "play_speed";
     private static final String KEY_LAST_POSITION = "last_position";
     private static final String KEY_LAST_PLAYBACK_POSITION = "last_playback_position";
     private static final String KEY_IS_PLAYING = "is_playing";
     private static final String KEY_PLAY_MODE = "play_mode";
-
-    private static final String DEFAULT_SCAN_PATH = "/storage/sdcard1/1/Folder1";
-    private static final String DEFAULT_MUSIC_FILE = "video.mp4";
-
-    private String SCAN_PATH;
-    private String MUSIC_FILE;
-
+    protected static final String DEFAULT_SCAN_PATH = "/storage/sdcard1/1/Folder1";
+    protected static final String DEFAULT_MUSIC_FILE = "video.mp4";
+    private static String SCAN_PATH;
+    private static String MUSIC_FILE;
     private MusicService musicService;
     private boolean isServiceBound = false;
     private boolean shouldPlayInBackground = false;
-    private final Map<String,String> folderPathMap = new HashMap<>();
+    public static final Map<String,String> folderPathMap = new HashMap<>();
+    //时间与电量
+    private TextView electricQuantityText;
+    private TextView nowTimeText;
+    private final Handler timeHandler = new Handler();
+    private Runnable timeUpdateTask;
+    private BroadcastReceiver batteryReceiver;
+    // 广播接收器，用于接收来自MusicListsActivity的播放请求
+    private final BroadcastReceiver playMusicReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction() != null && intent.getAction().equals(MusicListsActivity.ACTION_PLAY_MUSIC)) {
+                int position = intent.getIntExtra(MusicListsActivity.EXTRA_POSITION, -1);
+                if (position != -1) {
+                    playMusic(position);
+                }
+            }
+        }
+    };
 
     enum PlayMode {
         SEQUENTIAL,
@@ -117,11 +133,12 @@ public class MainActivity extends Activity {
     private final Runnable timeUpdateRunnable = new Runnable() {
         @Override
         public void run() {
-            updateTimeDisplay();
-            timeUpdateHandler.postDelayed(this, 1000);
+            updatePlayTimeDisplay();
+            playTimeUpdateHandler.postDelayed(this, 1000);
         }
     };
 
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -132,13 +149,41 @@ public class MainActivity extends Activity {
         setupExoPlayer();
         setupButtonListeners();
         setupSleepTimer();
-        scanMusicFolders();
+
+        // 注册广播接收器
+        IntentFilter filter = new IntentFilter(MusicListsActivity.ACTION_PLAY_MUSIC);
+        registerReceiver(playMusicReceiver, filter);
+        // 注册电量广播接收器
+        registerBatteryReceiver();
+        //启动音乐后台Service
         startAndBindMusicService();
-
-        playSpeed = sharedPreferences.getFloat(KEY_PLAY_SPEED, 1.0f);
-
         // 恢复上次播放状态
+        playSpeed = sharedPreferences.getFloat(KEY_PLAY_SPEED, 1.0f);
         restorePlaybackState();
+    }
+
+    private void initViews() {
+        currentMusicText = findViewById(R.id.currentMusicText);
+        PlayingTime = findViewById(R.id.PlayingTime);
+        allPlayTime = findViewById(R.id.allPlayTime);
+        musicProgressBar = findViewById(R.id.musicProgressBar);
+        settingsButton = findViewById(R.id.settingsButton);
+        infoButton = findViewById(R.id.infoButton);
+        modeButton = findViewById(R.id.modeButton);
+        prevButton = findViewById(R.id.prevButton);
+        playButton = findViewById(R.id.playButton);
+        nextButton = findViewById(R.id.nextButton);
+        musicListButton = findViewById(R.id.musicListButton);
+        electricQuantityText = findViewById(R.id.electricQuantity);
+        nowTimeText = findViewById(R.id.nowTime);
+
+        //播放时间显示
+        updatePlayTimeDisplay();
+        playTimeUpdateHandler.post(timeUpdateRunnable);
+
+        // 初始化时间显示
+        updateClockDisplay();
+        startClockUpdate();
     }
 
     private void startAndBindMusicService() {
@@ -149,6 +194,8 @@ public class MainActivity extends Activity {
 
     private void setupSharedPreferences() {
         sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        SCAN_PATH = sharedPreferences.getString(KEY_SCAN_PATH, DEFAULT_SCAN_PATH);
+        MUSIC_FILE = sharedPreferences.getString(KEY_MUSIC_FILE, DEFAULT_MUSIC_FILE);
         SCAN_PATH = sharedPreferences.getString(KEY_SCAN_PATH, DEFAULT_SCAN_PATH);
         MUSIC_FILE = sharedPreferences.getString(KEY_MUSIC_FILE, DEFAULT_MUSIC_FILE);
     }
@@ -240,71 +287,216 @@ public class MainActivity extends Activity {
         editor.apply();
     }
 
-    private void initViews() {
-        musicListView = findViewById(R.id.musicListView);
-        currentMusicText = findViewById(R.id.currentMusicText);
-        playtimeText = findViewById(R.id.playtimeText);
-        settingsButton = findViewById(R.id.settingsButton);
-        infoButton = findViewById(R.id.infoButton);
-        modeButton = findViewById(R.id.modeButton);
-        prevButton = findViewById(R.id.prevButton);
-        playButton = findViewById(R.id.playButton);
-        nextButton = findViewById(R.id.nextButton);
-
-        adapter = new ArrayAdapter<>(this, R.layout.list_item_music, R.id.folderNameText, musicFolders) {
-            @NonNull
-            @Override
-            public View getView(int position, View convertView, @NonNull android.view.ViewGroup parent) {
-                View view = super.getView(position, convertView, parent);
-                TextView folderNameText = view.findViewById(R.id.folderNameText);
-                ImageView playingIndicator = view.findViewById(R.id.playingIndicator);
-
-                if (folderNameText != null) {
-                    folderNameText.setText(getItem(position));
-                }
-                if (position == currentPosition) {
-                    if(isPlaying){
-                        playingIndicator.setVisibility(View.VISIBLE);
-                    }else {
-                        playingIndicator.setVisibility(View.GONE);
-                    }
-                    if (folderNameText != null)
-                        folderNameText.setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
-                } else {
-                    playingIndicator.setVisibility(View.GONE);
-                    if (folderNameText != null)
-                        folderNameText.setTextColor(getResources().getColor(android.R.color.white));
-                }
-                return view;
-            }
-        };
-
-        musicListView.post(() -> {
-            musicListView.setAdapter(adapter);
-            musicListView.setOnItemClickListener((parent, view, position, id) -> playMusic(position));
-        });
-        updateTimeDisplay();
-        timeUpdateHandler.post(timeUpdateRunnable);
-    }
-
+    /**
+     * 更新播放时间显示
+     */
     @SuppressLint({"DefaultLocale", "SetTextI18n"})
-    private void updateTimeDisplay() {
+    private void updatePlayTimeDisplay() {
         if (exoPlayer != null && isPlaying) {
             try {
                 long currentPosition = exoPlayer.getCurrentPosition();//播放时间
                 long duration = exoPlayer.getDuration();//完整时间
-
+                if (duration > 0) {
+                    int Progress = (int) (500 * currentPosition / duration);
+                    musicProgressBar.setProgress(Progress);
+                }else{
+                    musicProgressBar.setProgress(0);
+                }
                 String currentTime = formatTime(currentPosition);
                 String totalTime = formatTime(duration);
 
-                playtimeText.setText(currentTime + "/" + totalTime);
+                PlayingTime.setText(currentTime);
+                allPlayTime.setText(totalTime);
             } catch (Exception e) {
-                playtimeText.setText("00:00/00:00");
+                PlayingTime.setText("00:00");
+                allPlayTime.setText("null");
             }
         } else {
-            playtimeText.setText("00:00/00:00");
+            PlayingTime.setText("00:00");
+            allPlayTime.setText("null");
         }
     }
+    /**
+     * 更新时钟显示
+     */
+    @SuppressLint("SimpleDateFormat")
+    private void updateClockDisplay() {
+        if (nowTimeText == null) return;
+
+        SimpleDateFormat sdf = new SimpleDateFormat("ahh:mm", Locale.CHINA);
+        String currentTime = sdf.format(new Date());
+        nowTimeText.setText(currentTime);
+    }
+
+    /**
+     * 启动时钟定时更新
+     */
+    private void startClockUpdate() {
+        timeUpdateTask = new Runnable() {
+            @Override
+            public void run() {
+                updateClockDisplay();
+                // 每30s更新一次（或者可以更频繁，如每秒一次）
+                timeHandler.postDelayed(this, 30000);
+            }
+        };
+        timeHandler.post(timeUpdateTask);
+    }
+    /**
+     * 创建电池广播接收器
+     */
+    private void registerBatteryReceiver() {
+        batteryReceiver = new BroadcastReceiver() {
+            @SuppressLint("SetTextI18n")
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (Intent.ACTION_BATTERY_CHANGED.equals(intent.getAction())) {
+                    int level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+                    int scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+
+                    if (level != -1 && scale != -1) {
+                        float batteryPct = level * 100f / scale;
+                        electricQuantityText.setText("电量:" + (int) batteryPct + "%");
+                    }
+                }
+            }
+        };
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Intent.ACTION_BATTERY_CHANGED);
+        filter.addAction(Intent.ACTION_BATTERY_LOW);
+        filter.addAction(Intent.ACTION_BATTERY_OKAY);
+        registerReceiver(batteryReceiver, filter);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        String newScanPath = sharedPreferences.getString(KEY_SCAN_PATH, DEFAULT_SCAN_PATH);
+        String newMusicFile = sharedPreferences.getString(KEY_MUSIC_FILE, DEFAULT_MUSIC_FILE);
+        int timedOffMinutes = sharedPreferences.getInt(SettingsActivity.KEY_TIMED_OFF, 0);
+        float newPlaySpeed = sharedPreferences.getFloat(KEY_PLAY_SPEED, 1.0f);
+        isPowerOff = sharedPreferences.getBoolean(SettingsActivity.KEY_IS_POWER_OFF,false);
+
+
+        if (!newScanPath.equals(SCAN_PATH) || !newMusicFile.equals(MUSIC_FILE)) {
+            SCAN_PATH = newScanPath;
+            MUSIC_FILE = newMusicFile;
+            if(!scanMusicFolders(SCAN_PATH, MUSIC_FILE)) Toast.makeText(this, "扫描路径不存在: " + SCAN_PATH, Toast.LENGTH_LONG).show();
+        }
+
+        if (newPlaySpeed != playSpeed) {
+            setPlaySpeed(newPlaySpeed);
+        }
+
+        if (timedOffMinutes > 0 && !isSleepTimerActive) {
+            cancelSleepTimer();
+            startSleepTimer(timedOffMinutes);
+        }
+    }
+
+    @SuppressLint("SetTextI18n")
+    protected void playMusic(int position) {
+        if (position < 0 || position >= musicFolders.size()) return;
+        if (position == currentPosition) return;
+        try {
+            if (exoPlayer.isPlaying()) {
+                exoPlayer.stop();
+            }
+            String folderName = musicFolders.get(position);
+            File musicFile = new File(folderPathMap.get(folderName),MUSIC_FILE);
+
+            if (musicFile.exists()) {
+                Uri audioUri = Uri.fromFile(musicFile);
+                MediaItem mediaItem = MediaItem.fromUri(audioUri);
+
+                exoPlayer.setMediaItem(mediaItem);
+                exoPlayer.prepare();
+                exoPlayer.play();
+
+                if (playSpeed != 1.0f) {
+                    setPlaySpeed(playSpeed);
+                }
+
+                currentPosition = position;
+                isPlaying = true;
+                updateUI();
+
+                currentMusicText.setText(folderName);
+
+                if (isServiceBound && musicService != null) {
+                    musicService.updatePlaybackState(currentPosition, isPlaying);
+                }
+
+                // 发送广播通知MusicListsActivity更新状态
+                Intent statusUpdateIntent = new Intent("com.prismOS.bilimusic.STATUS_UPDATE");
+                sendBroadcast(statusUpdateIntent);
+
+                playTimeUpdateHandler.post(timeUpdateRunnable);
+                savePlaybackState(); // 保存播放状态
+
+            } else {
+                Toast.makeText(this, "找不到音乐文件: " + folderName, Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(this, "播放失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void updateUI() {
+        if (isPlaying) {
+            playButton.setImageResource(android.R.drawable.ic_media_pause);
+        } else {
+            playButton.setImageResource(android.R.drawable.ic_media_play);
+        }
+    }
+
+    public void togglePlayPause() {
+        if (exoPlayer == null) return;
+
+        if (isPlaying) {
+            // 暂停播放
+            exoPlayer.pause();
+            isPlaying = false;
+            cancelSleepTimer();
+            playTimeUpdateHandler.removeCallbacks(timeUpdateRunnable);
+
+            // 发送广播通知MusicListsActivity更新状态
+            Intent statusUpdateIntent = new Intent("com.prismOS.bilimusic.STATUS_UPDATE");
+            sendBroadcast(statusUpdateIntent);
+        } else {
+            // 开始播放
+            if (currentPosition == -1 && !musicFolders.isEmpty()) {
+                // 如果没有当前曲目，从第一首开始
+                playMusic(0);
+            } else if (currentPosition != -1) {
+                // 检查播放器是否有媒体项，如果没有则重新设置
+                if (exoPlayer.getMediaItemCount() == 0) {
+                    // 重新准备播放器
+                    prepareMusicForPlayback(currentPosition, 0);
+                }
+
+                // 开始播放
+                exoPlayer.play();
+                isPlaying = true;
+                playTimeUpdateHandler.post(timeUpdateRunnable);
+
+                // 发送广播通知MusicListsActivity更新状态
+                Intent statusUpdateIntent = new Intent("com.prismOS.bilimusic.STATUS_UPDATE");
+                sendBroadcast(statusUpdateIntent);
+
+                // 更新服务状态
+                if (isServiceBound && musicService != null) {
+                    musicService.updatePlaybackState(currentPosition, isPlaying);
+                }
+            }
+        }
+
+        updateUI();
+        savePlaybackState(); // 保存状态变更
+    }
+
 
     @SuppressLint("DefaultLocale")//时间格式化
     private String formatTime(long milliseconds) {
@@ -312,6 +504,38 @@ public class MainActivity extends Activity {
         long minutes = totalSeconds / 60;
         long seconds = totalSeconds % 60;
         return String.format("%02d:%02d", minutes, seconds);
+    }
+    public static boolean scanMusicFolders(String scanPath, String musicFile) {
+        musicFolders.clear();
+        shuffledList.clear();
+        File baseDir = new File(scanPath);
+
+        if (baseDir.exists() && baseDir.isDirectory()) {
+            scanDirectory(baseDir, musicFile);
+            // 初始化打乱列表
+            shuffledList.addAll(musicFolders);
+            // 如果当前是随机模式，打乱列表
+            Collections.shuffle(shuffledList);
+        } else {
+            return false;
+        }
+        return true;
+    }
+
+    public static void scanDirectory(File dir, String musicFile) {
+        File[] files = dir.listFiles();
+        if (files == null) return;
+
+        for (File file : files) {
+            if (file.isDirectory()) {
+                File musicFiles = new File(file, musicFile);
+                if (musicFiles.exists() && musicFiles.isFile()) {
+                    musicFolders.add(file.getName());
+                    folderPathMap.put(file.getName(), file.getAbsolutePath());
+                }
+                scanDirectory(file, musicFile);
+            }
+        }
     }
     private void setPlaySpeed(float speed) {
         this.playSpeed = speed;
@@ -328,39 +552,6 @@ public class MainActivity extends Activity {
         Toast.makeText(this, "播放速度设置为: " + speed + "x", Toast.LENGTH_SHORT).show();
     }
 
-    private void scanMusicFolders() {
-        musicFolders.clear();
-        shuffledList.clear();
-        File baseDir = new File(SCAN_PATH);
-
-        if (baseDir.exists() && baseDir.isDirectory()) {
-            scanDirectory(baseDir);
-            // 初始化打乱列表
-            shuffledList.addAll(musicFolders);
-            // 如果当前是随机模式，打乱列表
-            Collections.shuffle(shuffledList);
-        } else {
-            Toast.makeText(this, "扫描路径不存在: " + SCAN_PATH, Toast.LENGTH_LONG).show();
-        }
-
-        adapter.notifyDataSetChanged();
-    }
-
-    private void scanDirectory(File dir) {
-        File[] files = dir.listFiles();
-        if (files == null) return;
-
-        for (File file : files) {
-            if (file.isDirectory()) {
-                File musicFile = new File(file, MUSIC_FILE);
-                if (musicFile.exists() && musicFile.isFile()) {
-                    musicFolders.add(file.getName());
-                    folderPathMap.put(file.getName(), file.getAbsolutePath());
-                }
-                scanDirectory(file);
-            }
-        }
-    }
 
     private void setupExoPlayer() {
         exoPlayer = new ExoPlayer.Builder(this).build();
@@ -385,9 +576,15 @@ public class MainActivity extends Activity {
         infoButton.setOnClickListener(v -> showNextMusicInfo());
         modeButton.setOnClickListener(v -> switchPlayMode());
         playButton.setOnClickListener(v -> togglePlayPause());
+        musicListButton.setOnClickListener(v -> openLists());
 
         setupTouchListeners();
         setupKeyListeners();
+    }
+
+    private void openLists() {
+        Intent intent = new Intent(this, MusicListsActivity.class);
+        startActivity(intent);
     }
 
     private void openSettings() {
@@ -575,111 +772,6 @@ public class MainActivity extends Activity {
         cooldownHandler.postDelayed(() -> isCooldownActive = false, COOLDOWN_DURATION);
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        String newScanPath = sharedPreferences.getString(KEY_SCAN_PATH, DEFAULT_SCAN_PATH);
-        String newMusicFile = sharedPreferences.getString(KEY_MUSIC_FILE, DEFAULT_MUSIC_FILE);
-        int timedOffMinutes = sharedPreferences.getInt(SettingsActivity.KEY_TIMED_OFF, 0);
-        float newPlaySpeed = sharedPreferences.getFloat(KEY_PLAY_SPEED, 1.0f);
-
-        if (!newScanPath.equals(SCAN_PATH) || !newMusicFile.equals(MUSIC_FILE)) {
-            SCAN_PATH = newScanPath;
-            MUSIC_FILE = newMusicFile;
-            scanMusicFolders();
-        }
-
-        if (newPlaySpeed != playSpeed) {
-            setPlaySpeed(newPlaySpeed);
-        }
-
-        if (timedOffMinutes > 0 && !isSleepTimerActive) {
-            cancelSleepTimer();
-            startSleepTimer(timedOffMinutes);
-        }
-    }
-
-    @SuppressLint("SetTextI18n")
-    private void playMusic(int position) {
-        if (position < 0 || position >= musicFolders.size()) return;
-        try {
-            if (exoPlayer.isPlaying()) {
-                exoPlayer.stop();
-            }
-            String folderName = musicFolders.get(position);
-            File musicFile = new File(folderPathMap.get(folderName),MUSIC_FILE);
-
-            if (musicFile.exists()) {
-                Uri audioUri = Uri.fromFile(musicFile);
-                MediaItem mediaItem = MediaItem.fromUri(audioUri);
-
-                exoPlayer.setMediaItem(mediaItem);
-                exoPlayer.prepare();
-                exoPlayer.play();
-
-                if (playSpeed != 1.0f) {
-                    setPlaySpeed(playSpeed);
-                }
-
-                currentPosition = position;
-                isPlaying = true;
-                updateUI();
-
-                currentMusicText.setText(folderName);
-
-                if (isServiceBound && musicService != null) {
-                    musicService.updatePlaybackState(currentPosition, isPlaying);
-                }
-
-                timeUpdateHandler.post(timeUpdateRunnable);
-                savePlaybackState(); // 保存播放状态
-
-            } else {
-                Toast.makeText(this, "找不到音乐文件: " + folderName, Toast.LENGTH_SHORT).show();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            Toast.makeText(this, "播放失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    public void togglePlayPause() {
-        if (exoPlayer == null) return;
-
-        if (isPlaying) {
-            // 暂停播放
-            exoPlayer.pause();
-            isPlaying = false;
-            cancelSleepTimer();
-            timeUpdateHandler.removeCallbacks(timeUpdateRunnable);
-        } else {
-            // 开始播放
-            if (currentPosition == -1 && !musicFolders.isEmpty()) {
-                // 如果没有当前曲目，从第一首开始
-                playMusic(0);
-            } else if (currentPosition != -1) {
-                // 检查播放器是否有媒体项，如果没有则重新设置
-                if (exoPlayer.getMediaItemCount() == 0) {
-                    // 重新准备播放器
-                    prepareMusicForPlayback(currentPosition, 0);
-                }
-
-                // 开始播放
-                exoPlayer.play();
-                isPlaying = true;
-                timeUpdateHandler.post(timeUpdateRunnable);
-
-                // 更新服务状态
-                if (isServiceBound && musicService != null) {
-                    musicService.updatePlaybackState(currentPosition, isPlaying);
-                }
-            }
-        }
-
-        updateUI();
-        savePlaybackState(); // 保存状态变更
-    }
-
     private void playNext() {
         if (musicFolders.isEmpty()) {
             Toast.makeText(this, "没有可播放的音乐", Toast.LENGTH_SHORT).show();
@@ -785,7 +877,7 @@ public class MainActivity extends Activity {
         if (exoPlayer != null && isPlaying) {
             long current = exoPlayer.getCurrentPosition();
             exoPlayer.seekTo(current + 5000);
-            updateTimeDisplay();
+            updatePlayTimeDisplay();
         } else {
             Toast.makeText(this, "请先开始播放", Toast.LENGTH_SHORT).show();
         }
@@ -795,7 +887,7 @@ public class MainActivity extends Activity {
         if (exoPlayer != null && isPlaying) {
             long current = exoPlayer.getCurrentPosition();
             exoPlayer.seekTo(Math.max(0, current - 5000));
-            updateTimeDisplay();
+            updatePlayTimeDisplay();
         } else {
             Toast.makeText(this, "请先开始播放", Toast.LENGTH_SHORT).show();
         }
@@ -803,20 +895,31 @@ public class MainActivity extends Activity {
 
     private void setupSleepTimer() {
         sleepTimerRunnable = () -> {
+            updatePlayTimeDisplay();
             if (exoPlayer != null && exoPlayer.isPlaying()) {
                 exoPlayer.stop();
             }
             isPlaying = false;
             updateUI();
 
-            timeUpdateHandler.removeCallbacks(timeUpdateRunnable);
-            updateTimeDisplay();
+            playTimeUpdateHandler.removeCallbacks(timeUpdateRunnable);
+
 
             Toast.makeText(MainActivity.this, "定时关闭时间到，播放已停止", Toast.LENGTH_LONG).show();
             isSleepTimerActive = false;
 
             if (isServiceBound && musicService != null) {
                 musicService.updatePlaybackState(currentPosition, isPlaying);
+            }
+            if(isPowerOff){
+                Intent intent = new Intent();
+                intent.setClassName("com.mediatek.schpwronoff", "com.mediatek.schpwronoff.ShutdownActivity");
+                try {
+                    startActivity(intent);
+                } catch (Exception e) {
+                    // 处理Activity不存在的情况
+                    Toast.makeText(this, "关机失败because:" + e, Toast.LENGTH_SHORT).show();
+                }
             }
         };
     }
@@ -835,15 +938,6 @@ public class MainActivity extends Activity {
         isSleepTimerActive = false;
     }
 
-    private void updateUI() {
-        adapter.notifyDataSetChanged();
-
-        if (isPlaying) {
-            playButton.setImageResource(android.R.drawable.ic_media_pause);
-        } else {
-            playButton.setImageResource(android.R.drawable.ic_media_play);
-        }
-    }
 
     @Override
     public void onBackPressed() {
@@ -869,6 +963,17 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
 
+        // 注销广播接收器
+        unregisterReceiver(playMusicReceiver);
+        // 注销电量广播接收器
+        if (batteryReceiver != null) {
+            unregisterReceiver(batteryReceiver);
+        }
+
+        // 停止时钟更新
+        if (timeUpdateTask != null) {
+            timeHandler.removeCallbacks(timeUpdateTask);
+        }
         // 保存播放状态
         savePlaybackState();
 
@@ -883,7 +988,7 @@ public class MainActivity extends Activity {
         }
 
         cancelSleepTimer();
-        timeUpdateHandler.removeCallbacks(timeUpdateRunnable);
+        playTimeUpdateHandler.removeCallbacks(timeUpdateRunnable);
         if (exoPlayer != null) {
             exoPlayer.release();
             exoPlayer = null;

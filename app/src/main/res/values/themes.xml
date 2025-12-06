@@ -5,7 +5,7 @@
     </style>
 
     <!-- Settings activity theme - also fullscreen -->
-    <style name="Theme.Bilimusic.Settings" parent="Theme.AppCompat.Light.NoActionBar">
+    <style name="Theme.Bilimusic.normal" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:windowFullscreen">true</item>
     </style>
 </resources>

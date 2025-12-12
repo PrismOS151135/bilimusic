@@ -10,7 +10,6 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.net.Uri;
-import android.opengl.Visibility;
 import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.Handler;

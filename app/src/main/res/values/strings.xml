@@ -16,7 +16,7 @@
     <string name="settings">设置</string>
     <string name="v6">播放控制</string>
     <string name="v7">定时关闭</string>
-    <string name="v8">播放速度（0.5-4.0）</string>
+    <string name="v8">播放速度（0.5 –4.0）</string>
     <string name="v9">文件夹设置</string>
     <string name="v10">请输入音乐文件夹扫描路径</string>
     <string name="t2">恢复</string>
@@ -48,4 +48,5 @@
     <string name="r2">字体大小</string>
     <string name="r3">定时结束自动关机</string>
     <string name="r4">取消启动动画</string>
+    <string name="_30min">30min</string>
 </resources>

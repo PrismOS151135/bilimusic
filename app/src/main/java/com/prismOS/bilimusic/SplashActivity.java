@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.ImageView;
 import android.widget.Toast;
 
@@ -117,7 +118,7 @@ public class SplashActivity extends AppCompatActivity {
                     startMainActivity();
                 });
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                Log.e("SplashActivity", "扫描出错：", e);
                 runOnUiThread(this::startMainActivity);
             }
         }).start();

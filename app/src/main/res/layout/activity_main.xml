@@ -23,7 +23,7 @@
             android:id="@+id/RestSleepTime"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:text="30min"
+            android:text="@string/_30min"
             android:textColor="#A4A4A4"
             android:textSize="16sp"
             android:gravity="center"

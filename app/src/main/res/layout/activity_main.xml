@@ -14,39 +14,56 @@
             android:id="@+id/electricQuantity"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:layout_marginLeft="6dp"
-            android:text="电量:100%"
+            android:layout_marginStart="6dp"
+            android:text="@string/_100"
             android:textColor="@color/white"
             android:textSize="16sp"
             android:gravity="center_vertical"/>
         <TextView
+            android:id="@+id/RestSleepTime"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:text="30min"
+            android:textColor="#A4A4A4"
+            android:textSize="16sp"
+            android:gravity="center"
+            android:layout_centerInParent="true"
+            tools:ignore="RelativeOverlap"/>
+
+        <TextView
             android:id="@+id/nowTime"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:text="上午10:08"
+            android:text="@string/_10_08"
             android:textSize="16sp"
             android:textColor="@color/white"
             android:gravity="center_vertical"
-            android:layout_marginRight="10dp"
-            android:layout_alignParentRight="true"/>
+            android:layout_marginEnd="10dp"
+            android:layout_alignParentEnd="true"
+            tools:ignore="RelativeOverlap" />
     </RelativeLayout>
 
 
     <!-- 当前播放信息 - 移到顶部中心位置 -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="60dp"
+        android:layout_height="0dp"
         android:layout_weight="1"
         android:gravity="center"
         android:orientation="vertical">
         <!-- 中间留空区域 - 用于未来显示专辑封面或歌词 -->
-        <ImageView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:alpha="0.8"
-            android:src="@drawable/ic_launcher"
+        <com.prismOS.bilimusic.RoundImageView
+            android:id="@+id/songImage"
+            android:layout_width="160dp"
+            android:layout_height="160dp"
+            android:padding="1dp"
+            android:src="@drawable/img_none"
+            android:background="#fff"
+            android:scaleType="centerCrop"
             tools:ignore="ContentDescription" />
-
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="20dp"/>
         <TextView
             android:id="@+id/currentMusicText"
             android:layout_width="match_parent"
@@ -92,7 +109,7 @@
                 android:layout_marginLeft="15dp"
                 android:max="500"
                 android:progress="0"
-                android:progressDrawable="@drawable/progress"/>
+                android:progressDrawable="@drawable/my_progress"/>
 
             <TextView
                 android:id="@+id/allPlayTime"
@@ -170,7 +187,7 @@
                 android:src="@android:drawable/ic_menu_agenda"
                 android:contentDescription="@string/v1"/>
 
-        <!-- 功能按钮 -->
+            <!-- 功能按钮 -->
             <ImageButton
                 android:id="@+id/settingsButton"
                 android:layout_width="wrap_content"

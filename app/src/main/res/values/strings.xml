@@ -25,4 +25,27 @@
     <string name="m2">音乐列表</string>
     <string name="_0_00">0:00</string>
     <string name="_4_30">4:30</string>
+    <string name="t5">复制</string>
+    <string name="t4">剪切</string>
+    <string name="t3">粘贴</string>
+    <string name="t6">全选</string>
+    <string name="t7">取消</string>
+    <string name="popup_copy">复制</string>
+    <string name="popup_cut">剪切</string>
+    <string name="popup_paste">粘贴</string>
+    <string name="popup_select_all">全选</string>
+    <string name="popup_cancel">取消</string>
+    <string name="copied_to_clipboard">已复制到剪贴板</string>
+    <string name="cut_to_clipboard">已剪切到剪贴板</string>
+    <string name="pasted">已粘贴</string>
+    <string name="_100">电量:100%</string>
+    <string name="_10_08">上午10:08</string>
+    <string name="t8">扫描路径设置</string>
+    <string name="t9">界面设置</string>
+    <string name="t10">封面大小:</string>
+    <string name="v11">封面大小</string>
+    <string name="r1">歌曲字体大小:</string>
+    <string name="r2">字体大小</string>
+    <string name="r3">定时结束自动关机</string>
+    <string name="r4">取消启动动画</string>
 </resources>

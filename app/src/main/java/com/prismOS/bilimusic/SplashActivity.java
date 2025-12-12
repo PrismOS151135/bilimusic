@@ -30,10 +30,18 @@ public class SplashActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_splash);
-
-        gifImageView = findViewById(R.id.gif_image_view);
-
-        loadGifAndApp();
+        SharedPreferences OnceSharedPreferences = getSharedPreferences(SettingsActivity.PREFS_NAME, MODE_PRIVATE);
+        boolean isAnimOff = OnceSharedPreferences.getBoolean(SettingsActivity.KEY_IS_ANIM_OFF,false);
+        if (isAnimOff){
+            SharedPreferences sharedPreferences = getSharedPreferences(MainActivity.PREFS_NAME, MODE_PRIVATE);
+            String scanPath = sharedPreferences.getString(MainActivity.KEY_SCAN_PATH, MainActivity.DEFAULT_SCAN_PATH);
+            String musicFile = sharedPreferences.getString(MainActivity.KEY_MUSIC_FILE, MainActivity.DEFAULT_MUSIC_FILE);
+            MainActivity.scanMusicFolders(scanPath, musicFile);
+            startMainActivity();
+        }else{
+            gifImageView = findViewById(R.id.gif_image_view);
+            loadGifAndApp();
+        }
     }
 
     private void loadGifAndApp() {

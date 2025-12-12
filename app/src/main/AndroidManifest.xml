@@ -14,6 +14,7 @@
 
         <activity
             android:name=".SplashActivity"
+            android:exported="true"
             android:theme="@style/Theme.Bilimusic.normal"
             android:configChanges="orientation|keyboardHidden|screenSize">
             <intent-filter>

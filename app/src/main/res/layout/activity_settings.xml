@@ -91,7 +91,7 @@
                 android:importantForAutofill="no"
                 android:inputType="none"
                 android:textColor="@color/white"
-                android:textSize="12sp" />
+                android:textSize="12sp"/>
 
             <Button
                 android:id="@+id/resetButton"

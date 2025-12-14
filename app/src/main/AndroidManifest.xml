@@ -15,7 +15,7 @@
         <activity
             android:name=".SplashActivity"
             android:exported="true"
-            android:theme="@style/Theme.Bilimusic.normal"
+            android:theme="@style/Theme.Bilimusic"
             android:configChanges="orientation|keyboardHidden|screenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -31,13 +31,13 @@
         <activity
             android:name=".SettingsActivity"
             android:label="设置"
-            android:theme="@style/Theme.Bilimusic.normal"
+            android:theme="@style/Theme.Bilimusic"
             android:parentActivityName=".MainActivity" />
 
         <activity
             android:name=".MusicListsActivity"
             android:label="音乐列表"
-            android:theme="@style/Theme.Bilimusic.normal"
+            android:theme="@style/Theme.Bilimusic"
             android:parentActivityName=".MainActivity"/>
     </application>
 

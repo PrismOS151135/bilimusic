@@ -49,4 +49,5 @@
     <string name="r3">定时结束自动关机</string>
     <string name="r4">取消启动动画</string>
     <string name="_30min">30min</string>
+    <string name="r5">其他设置</string>
 </resources>

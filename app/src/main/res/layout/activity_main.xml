@@ -185,7 +185,7 @@
                 android:id="@+id/infoButton"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:layout_marginStart="5dp"
+                android:layout_marginStart="8dp"
                 android:padding="5dp"
                 android:scaleType="fitCenter"
                 android:background="?android:attr/selectableItemBackground"

@@ -32,7 +32,7 @@
             android:text="@string/v6"
             android:textSize="16sp"
             android:textColor="@color/white"
-            android:layout_marginBottom="8dp" />
+            android:layout_marginBottom="4dp" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -130,7 +130,7 @@
                 android:id="@+id/ImageSize"
                 android:layout_width="0dp"
                 android:layout_weight="1"
-                android:layout_height="30dp"
+                android:layout_height="35dp"
                 android:hint="@string/v11"
                 android:importantForAutofill="no"
                 android:inputType="number"
@@ -154,7 +154,7 @@
                 android:id="@+id/TextSize"
                 android:layout_width="0dp"
                 android:layout_weight="1"
-                android:layout_height="30dp"
+                android:layout_height="35dp"
                 android:hint="@string/r2"
                 android:importantForAutofill="no"
                 android:inputType="number"
@@ -170,7 +170,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:padding="5dp"
-            android:text="其他设置"
+            android:text="@string/r5"
             android:textSize="16sp"
             android:textColor="@color/white"
             android:layout_marginBottom="4dp" />

@@ -1,7 +1,6 @@
 package com.prismOS.bilimusic;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -14,8 +13,9 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 
-public class MusicListsActivity extends Activity {
+public class MusicListsActivity extends AppCompatActivity {
     private ListView musicListView;
     protected static ArrayAdapter<String> adapter;
 
@@ -98,7 +98,7 @@ public class MusicListsActivity extends Activity {
         // 发送广播通知MainActivity播放音乐
         Intent playIntent = new Intent(ACTION_PLAY_MUSIC);
         playIntent.putExtra(EXTRA_POSITION, position);
-        sendBroadcast(playIntent);;
+        sendBroadcast(playIntent);
         // 可选：返回到MainActivity
         //finish();
     }

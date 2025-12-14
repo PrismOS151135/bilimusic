@@ -1,7 +1,6 @@
 package com.prismOS.bilimusic;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -27,6 +26,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
@@ -48,7 +48,7 @@ import java.util.Map;
 import java.util.Random;
 import java.text.SimpleDateFormat;
 
-public class MainActivity extends Activity {
+public class MainActivity extends AppCompatActivity {
 
     private TextView currentMusicText;
     private TextView PlayingTime, allPlayTime, RestSleepTime;
@@ -287,15 +287,15 @@ public class MainActivity extends Activity {
         switch (savedPlayMode) {
             case "RANDOM":
                 playMode = PlayMode.RANDOM;
-                modeButton.setImageResource(android.R.drawable.ic_menu_sort_alphabetically);
+                modeButton.setImageResource(R.drawable.btn_play_random);
                 break;
             case "LOOP":
                 playMode = PlayMode.LOOP;
-                modeButton.setImageResource(android.R.drawable.ic_menu_rotate);
+                modeButton.setImageResource(R.drawable.btn_play_rotate);
                 break;
             default:
                 playMode = PlayMode.SEQUENTIAL;
-                modeButton.setImageResource(android.R.drawable.ic_media_next);
+                modeButton.setImageResource(R.drawable.btn_play_sequential);
                 break;
         }
 
@@ -500,9 +500,9 @@ public class MainActivity extends Activity {
      */
     private void updateUI() {
         if (isPlaying) {
-            playButton.setImageResource(android.R.drawable.ic_media_pause);
+            playButton.setImageResource(R.drawable.btn_stop);
         } else {
-            playButton.setImageResource(android.R.drawable.ic_media_play);
+            playButton.setImageResource(R.drawable.btn_play);
         }
     }
     //使用加载封面图片
@@ -516,7 +516,7 @@ public class MainActivity extends Activity {
                 .error(R.drawable.img_error) // 加载错误时显示的图片
                 .placeholder(R.drawable.img_loading) // 加载过程中显示的占位图
                 .diskCacheStrategy(DiskCacheStrategy.ALL) // 缓存策略
-                .override(200, 200); // 可以设置图片大小，根据实际需要调整
+                .override(400, 400); // 可以设置图片大小，根据实际需要调整
         File coverFile = new File(folderPath, "cover.png");
 
         if (coverFile.exists() && coverFile.length() > 0) {
@@ -914,17 +914,17 @@ public class MainActivity extends Activity {
         switch (playMode) {
             case SEQUENTIAL:
                 playMode = PlayMode.RANDOM;
-                modeButton.setImageResource(android.R.drawable.ic_menu_sort_alphabetically);
+                modeButton.setImageResource(R.drawable.btn_play_random);
                 // 打乱列表
                 Collections.shuffle(shuffledList);
                 break;
             case RANDOM:
                 playMode = PlayMode.LOOP;
-                modeButton.setImageResource(android.R.drawable.ic_menu_rotate);
+                modeButton.setImageResource(R.drawable.btn_play_rotate);
                 break;
             case LOOP:
                 playMode = PlayMode.SEQUENTIAL;
-                modeButton.setImageResource(android.R.drawable.ic_media_next);
+                modeButton.setImageResource(R.drawable.btn_play_sequential);
                 break;
         }
 
@@ -1121,10 +1121,8 @@ public class MainActivity extends Activity {
         // 注销广播接收器
         unregisterReceiver(playMusicReceiver);
 
-        // 注销电量广播接收器
-        if (batteryReceiver != null) {
-            unregisterReceiver(batteryReceiver);
-        }
+        // 注销电量广播接收器(不知道为什么反正不能注销。。。)
+        //if (batteryReceiver != null) {unregisterReceiver(batteryReceiver);}
 
         // 停止时钟更新
         if (timeUpdateTask != null) {

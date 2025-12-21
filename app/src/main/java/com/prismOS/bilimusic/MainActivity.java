@@ -60,12 +60,12 @@ public class MainActivity extends AppCompatActivity {
     private boolean isDoubleTap = false;
 
     private View t1, r0, r1, r2, r3, r4, r5;
-    public static final List<String> musicFolders = new ArrayList<>();
-    public static final List<String> shuffledList = new ArrayList<>();
+    protected static final List<String> musicFolders = new ArrayList<>();
+    protected static final List<String> shuffledList = new ArrayList<>();
     private static ExoPlayer exoPlayer;
-    public static int currentPosition = -1;
+    protected static int currentPosition = -1;
     private static PlayMode playMode = PlayMode.SEQUENTIAL;
-    public static boolean isPlaying = false;
+    protected static boolean isPlaying = false;
     private float playSpeed = 1.0f;
     private final Handler longPressHandler = new Handler();
     private final Handler keyLongPressHandler = new Handler();
@@ -83,8 +83,8 @@ public class MainActivity extends AppCompatActivity {
 
     private long sleepTimerEndTime;
     private SharedPreferences sharedPreferences;
-    @SuppressLint("StaticFieldLeak")
-    protected static TextView currentMusicText;
+    private TextView currentMusicText;
+    protected static String TheMusicText;
     protected static final String PREFS_NAME = "MusicPlayerPrefs";
     protected static final String KEY_SCAN_PATH = "scan_path";
     protected static final String KEY_MUSIC_FILE = "music_file";
@@ -105,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
     private static int buttonInterval;
     private boolean isServiceBound = false;
     private boolean shouldPlayInBackground = false;
-    public static final Map<String,String> folderPathMap = new HashMap<>();
+    protected static final Map<String,String> folderPathMap = new HashMap<>();
     //时间与电量
     private TextView electricQuantityText;
     private TextView nowTimeText;
@@ -356,6 +356,7 @@ public class MainActivity extends AppCompatActivity {
             currentPosition = lastPosition;
 
             currentMusicText.setText(musicFolders.get(currentPosition));
+            TheMusicText = currentMusicText.getText().toString().trim();
 
             if (!wasPlaying && !musicFolders.isEmpty()) {
                 // 设置播放状态为false，这样播放按钮会显示暂停图标
@@ -622,6 +623,7 @@ public class MainActivity extends AppCompatActivity {
                 updateUI();
 
                 currentMusicText.setText(folderName);
+                TheMusicText = currentMusicText.getText().toString().trim();
 
                 if (isServiceBound && musicService != null) {
                     musicService.updatePlaybackState(currentPosition, isPlaying);

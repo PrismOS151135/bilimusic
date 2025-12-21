@@ -4,10 +4,10 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-12-10T05:46:10.967620700Z">
+        <DropdownSelection timestamp="2025-12-21T07:23:46.428053500Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="LocalEmulator" identifier="path=D:\PRISM\.android\avd\New_Device.avd" />
+              <DeviceId pluginId="LocalEmulator" identifier="path=D:\PRISM\.android\avd\New_Device_2.avd" />
             </handle>
           </Target>
         </DropdownSelection>

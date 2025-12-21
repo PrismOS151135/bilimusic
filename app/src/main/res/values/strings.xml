@@ -50,4 +50,6 @@
     <string name="r4">取消启动动画</string>
     <string name="_30min">30min</string>
     <string name="r5">其他设置</string>
+    <string name="r6">按钮间距：</string>
+    <string name="r7">按钮间距</string>
 </resources>

@@ -14,6 +14,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
+import android.view.GestureDetector;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -49,12 +50,16 @@ import java.util.Random;
 import java.text.SimpleDateFormat;
 
 public class MainActivity extends AppCompatActivity {
-
-    private TextView currentMusicText;
     private TextView PlayingTime, allPlayTime, RestSleepTime;
     private ImageButton settingsButton, infoButton, modeButton, prevButton, playButton, nextButton, musicListButton;
     private ProgressBar musicProgressBar;
     private ImageView songImage;
+
+    private GestureDetector gestureDetector;
+    private LinearLayout layoutTouch;
+    private boolean isDoubleTap = false;
+
+    private View t1, r0, r1, r2, r3, r4, r5;
     public static final List<String> musicFolders = new ArrayList<>();
     public static final List<String> shuffledList = new ArrayList<>();
     private static ExoPlayer exoPlayer;
@@ -78,6 +83,8 @@ public class MainActivity extends AppCompatActivity {
 
     private long sleepTimerEndTime;
     private SharedPreferences sharedPreferences;
+    @SuppressLint("StaticFieldLeak")
+    protected static TextView currentMusicText;
     protected static final String PREFS_NAME = "MusicPlayerPrefs";
     protected static final String KEY_SCAN_PATH = "scan_path";
     protected static final String KEY_MUSIC_FILE = "music_file";
@@ -95,6 +102,7 @@ public class MainActivity extends AppCompatActivity {
     private MusicService musicService;
     private static int songImageSize;
     private static int theTextSize;
+    private static int buttonInterval;
     private boolean isServiceBound = false;
     private boolean shouldPlayInBackground = false;
     public static final Map<String,String> folderPathMap = new HashMap<>();
@@ -153,14 +161,23 @@ public class MainActivity extends AppCompatActivity {
         setupSharedPreferences();
         initViews();
         setImageViewSize(songImage,songImageSize);
+        setViewSize(r0,buttonInterval);
+        setViewSize(r1,buttonInterval);
+        setViewSize(r2,buttonInterval);
+        setViewSize(r3,buttonInterval);
+        setViewSize(r4,buttonInterval);
+        setViewSize(r5,buttonInterval);
         if (theTextSize == 0){
+            t1.setVisibility(View.GONE);
             currentMusicText.setVisibility(View.GONE);
         } else{
             currentMusicText.setVisibility(View.VISIBLE);
+            t1.setVisibility(View.VISIBLE);
             currentMusicText.setTextSize(theTextSize);
         }
         setupExoPlayer();
         setupButtonListeners();
+        setupGestureDetector();
         setupSleepTimer();
 
         // 注册广播接收器
@@ -186,14 +203,23 @@ public class MainActivity extends AppCompatActivity {
 
         songImageSize = sharedPreferences.getInt(KEY_IMAGE_SIZE, 160);
         theTextSize = sharedPreferences.getInt(KEY_TEXT_SIZE, 16);
+        buttonInterval = sharedPreferences.getInt(SettingsActivity.KEY_BUTTON_INTERVAL, 0);
         setImageViewSize(songImage, songImageSize);
+        setViewSize(r0,buttonInterval);
+        setViewSize(r1,buttonInterval);
+        setViewSize(r2,buttonInterval);
+        setViewSize(r3,buttonInterval);
+        setViewSize(r4,buttonInterval);
+        setViewSize(r5,buttonInterval);
 
         registerBatteryReceiver();
 
         if (theTextSize == 0){
+            t1.setVisibility(View.GONE);
             currentMusicText.setVisibility(View.GONE);
         } else{
             currentMusicText.setVisibility(View.VISIBLE);
+            t1.setVisibility(View.VISIBLE);
             currentMusicText.setTextSize(theTextSize);
         }
 
@@ -212,7 +238,7 @@ public class MainActivity extends AppCompatActivity {
                 cancelSleepTimer();
                 startSleepTimer(timedOffMinutes);
             }
-        }else if (timedOffMinutes == 0 && isSleepTimerActive) {
+        }else {
             cancelSleepTimer();
             sleepTimeUpdateHandler.removeCallbacks(sleepTimeUpdataRunnable);
             RestSleepTime.setVisibility(View.GONE);
@@ -222,6 +248,7 @@ public class MainActivity extends AppCompatActivity {
     private void setImageViewSize(ImageView imageView,int size) {
         if (size == 0){
             imageView.setVisibility(View.GONE);
+            t1.setVisibility(View.GONE);
         } else{
             float density = getResources().getDisplayMetrics().density;
             int sizeInPx = (int) (size * density + 0.5f);  // 四舍五入确保整数像素
@@ -230,9 +257,27 @@ public class MainActivity extends AppCompatActivity {
             // int sizeInPx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, sizeInDp, getResources().getDisplayMetrics());
 
             imageView.setVisibility(View.VISIBLE);
+            t1.setVisibility(View.VISIBLE);
             LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(sizeInPx, sizeInPx);
             imageView.setLayoutParams(layoutParams);
             ((ViewGroup) imageView.getParent()).requestLayout();  // 强制父容器重新布局
+        }
+    }
+
+    private void setViewSize(View View,int size) {
+        if (size == 0){
+            View.setVisibility(android.view.View.GONE);
+        } else{
+            float density = getResources().getDisplayMetrics().density;
+            int sizeInPx = (int) (size * density + 0.5f);  // 四舍五入确保整数像素
+
+            // 或者使用 TypedValue（更精确）
+            // int sizeInPx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, sizeInDp, getResources().getDisplayMetrics());
+
+            View.setVisibility(android.view.View.VISIBLE);
+            LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(sizeInPx, 40);
+            View.setLayoutParams(layoutParams);
+            ((ViewGroup) View.getParent()).requestLayout();  // 强制父容器重新布局
         }
     }
 
@@ -252,6 +297,14 @@ public class MainActivity extends AppCompatActivity {
         electricQuantityText = findViewById(R.id.electricQuantity);//电量显示
         nowTimeText = findViewById(R.id.nowTime);//视频标题
         RestSleepTime = findViewById(R.id.RestSleepTime);//休眠倒计时
+        layoutTouch = findViewById(R.id.layoutTouch);//触控区域
+        t1 = findViewById(R.id.t1);//...史
+        r0 = findViewById(R.id.r0);
+        r1 = findViewById(R.id.r1);
+        r2 = findViewById(R.id.r2);
+        r3 = findViewById(R.id.r3);
+        r4 = findViewById(R.id.r4);
+        r5 = findViewById(R.id.r5);
 
         RestSleepTime.setVisibility(View.GONE);
         //播放时间显示
@@ -543,7 +596,6 @@ public class MainActivity extends AppCompatActivity {
     @SuppressLint("SetTextI18n")
     protected void playMusic(int position) {
         if (position < 0 || position >= musicFolders.size()) return;
-        if (position == currentPosition && playMode != PlayMode.LOOP) return;
         try {
             if (exoPlayer.isPlaying()) {
                 exoPlayer.stop();
@@ -586,7 +638,7 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "找不到音乐文件: " + folderName, Toast.LENGTH_SHORT).show();
             }
         } catch (Exception e) {
-            Log.e("MainActivity", "playMusic错误：");
+            Log.e("MainActivity", "playMusic错误：", e);
             Toast.makeText(this, "播放失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
@@ -594,6 +646,7 @@ public class MainActivity extends AppCompatActivity {
     public void togglePlayPause() {
         if (exoPlayer == null) return;
 
+        // 添加简单的视觉反馈
         if (isPlaying) {
             // 暂停播放
             exoPlayer.pause();
@@ -709,7 +762,53 @@ public class MainActivity extends AppCompatActivity {
         musicListButton.setOnClickListener(v -> openLists());
 
         setupTouchListeners();
-        setupKeyListeners();
+        setupBtnKeyListeners();
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private void setupGestureDetector() {
+        gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onDoubleTap(@NonNull MotionEvent e) {
+                // 双击播放/暂停
+                if (!isDoubleTap) {
+                    isDoubleTap = true;
+                    togglePlayPause();
+
+                    // 重置双击标志
+                    new Handler().postDelayed(() -> isDoubleTap = false, 300);
+                    return true;
+                }
+                return false;
+            }
+
+            @Override
+            public boolean onFling(MotionEvent e1, @NonNull MotionEvent e2, float velocityX, float velocityY) {
+                // 左右滑动切换歌曲
+                float diffX = e2.getX() - e1.getX();
+                float diffY = e2.getY() - e1.getY();
+
+                // 确保是水平滑动（水平位移大于垂直位移，且最小滑动距离）
+                if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 100) {
+                    if (diffX > 0) {
+                        // 向右滑动 - 上一首
+                        playPrevious();
+                    } else {
+                        // 向左滑动 - 下一首
+                        playNext();
+                    }
+                    return true;
+                }
+                return false;
+            }
+
+        });
+        // 为 layoutTouch 设置触摸监听器
+        layoutTouch.setOnTouchListener((v, event) -> {
+            // 将触摸事件传递给手势检测器
+            gestureDetector.onTouchEvent(event);
+            return true;
+        });
     }
 
     private void openLists() {
@@ -738,7 +837,7 @@ public class MainActivity extends AppCompatActivity {
                 break;
             case RANDOM:
                 if (shuffledList.isEmpty()) {
-                    Toast.makeText(this, "播放列表为空,请重启应用", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "播放列表为空,请尝试重启应用", Toast.LENGTH_SHORT).show();
                 } else {
                     int currentShufflePos = getCurrentShufflePosition();
                     if (currentShufflePos == -1) {
@@ -834,7 +933,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void setupKeyListeners() {
+    private void setupBtnKeyListeners() {
         prevButton.setFocusable(true);
         nextButton.setFocusable(true);
 
@@ -899,6 +998,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+
     private void startCooldown() {
         isCooldownActive = true;
         cooldownHandler.postDelayed(() -> isCooldownActive = false, COOLDOWN_DURATION);
@@ -959,7 +1059,6 @@ public class MainActivity extends AppCompatActivity {
                 break;
             case LOOP:
                 prevPos = currentPosition;
-                Toast.makeText(this, "单曲循环中", Toast.LENGTH_SHORT).show();
                 break;
             case SEQUENTIAL:
             default:
@@ -1016,7 +1115,6 @@ public class MainActivity extends AppCompatActivity {
                 break;
             case LOOP:
                 nextPos = currentPosition;
-                Toast.makeText(this, "单曲循环中", Toast.LENGTH_SHORT).show();
                 break;
             case SEQUENTIAL:
             default:

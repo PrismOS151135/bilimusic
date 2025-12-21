@@ -1,5 +1,7 @@
 package com.prismOS.bilimusic;
 
+import static com.prismOS.bilimusic.MainActivity.currentPosition;
+
 import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -67,11 +69,14 @@ public class MusicListsActivity extends AppCompatActivity {
                 View view = super.getView(position, convertView, parent);
                 TextView folderNameText = view.findViewById(R.id.folderNameText);
                 ImageView playingIndicator = view.findViewById(R.id.playingIndicator);
-
-                if (folderNameText != null) {
+                boolean isInTheLists = true;
+                //判断是否在列表内
+                String text = MainActivity.currentMusicText.getText().toString().trim();
+                if (!MainActivity.musicFolders.contains(text)) isInTheLists = false;
+                if (folderNameText != null)
                     folderNameText.setText(getItem(position));
-                }
-                if (position == MainActivity.currentPosition) {
+
+                if (position == currentPosition && isInTheLists) {
                     if (MainActivity.isPlaying) {
                         playingIndicator.setVisibility(View.VISIBLE);
                     } else {
@@ -95,6 +100,8 @@ public class MusicListsActivity extends AppCompatActivity {
     }
 
     public void ToPlayMusic(int position) {
+        String text = MainActivity.currentMusicText.getText().toString().trim();
+        if (MainActivity.musicFolders.contains(text) && position == currentPosition) return;
         // 发送广播通知MainActivity播放音乐
         Intent playIntent = new Intent(ACTION_PLAY_MUSIC);
         playIntent.putExtra(EXTRA_POSITION, position);

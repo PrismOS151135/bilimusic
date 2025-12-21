@@ -12,10 +12,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 public class SettingsActivity extends AppCompatActivity {
 
-    private EditText scanPathEditText;
-    private EditText TimedOff;
-    private EditText PlaySpeed;
-    private EditText ImageSize;
+    private EditText scanPathEditText, TimedOff, PlaySpeed, ImageSize, ButtonInterval;
     private Button resetButton;
     private CheckBox isPowerOffBox;
     private CheckBox isAnimOffBox;
@@ -34,10 +31,12 @@ public class SettingsActivity extends AppCompatActivity {
     public static final String KEY_IS_ANIM_OFF = "is_anim_off";
     public static final String KEY_IMAGE_SIZE = "image_size";
     public static final String KEY_TEXT_SIZE = "text_size";
+    public static final String KEY_BUTTON_INTERVAL = "button_interval";
     private boolean isPowerOff;
     private boolean isAnimOff;
     private int imageSize;
     private int textSize;
+    private int buttonInterval;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,6 +58,7 @@ public class SettingsActivity extends AppCompatActivity {
         isAnimOffBox = findViewById(R.id.isAnimOffBox);
         ImageSize = findViewById(R.id.ImageSize);
         TextSize = findViewById(R.id.TextSize);
+        ButtonInterval = findViewById(R.id.ButtonInterval);
 
     }
 
@@ -81,6 +81,8 @@ public class SettingsActivity extends AppCompatActivity {
         ImageSize.setText(String.valueOf(imageSize));
         textSize = sharedPreferences.getInt(KEY_TEXT_SIZE,16);
         TextSize.setText(String.valueOf(textSize));
+        buttonInterval = sharedPreferences.getInt(KEY_BUTTON_INTERVAL,0);
+        ButtonInterval.setText(String.valueOf(buttonInterval));
     }
 
     private void setupButtonListeners() {
@@ -172,20 +174,39 @@ public class SettingsActivity extends AppCompatActivity {
         }
 
         String nowImageSize = ImageSize.getText().toString().trim();
-        if (imageSize != Integer.parseInt(nowImageSize) && !nowImageSize.isEmpty()) {
+        if (!nowImageSize.isEmpty()) {
             int currentImageSize = Integer.parseInt(nowImageSize);
-            if (currentImageSize >= 0) {
+            if (imageSize != currentImageSize && currentImageSize >= 0) {
                 editor.putInt(KEY_IMAGE_SIZE, currentImageSize);
                 hasChanges = true;
             }
+        }else{
+            editor.putInt(KEY_IMAGE_SIZE, 0);
+            hasChanges = true;
         }
+
         String nowTextSize = TextSize.getText().toString().trim();
-        if (textSize != Integer.parseInt(nowTextSize) && !nowTextSize.isEmpty()){
+        if (!nowTextSize.isEmpty()){
             int currentTextSize = Integer.parseInt(nowTextSize);
-            if (currentTextSize >= 0) {
+            if (textSize != currentTextSize && currentTextSize >= 0) {
                 editor.putInt(KEY_TEXT_SIZE, currentTextSize);
                 hasChanges = true;
             }
+        }else{
+            editor.putInt(KEY_TEXT_SIZE, 0);
+            hasChanges = true;
+        }
+
+        String nowButtonInterval = ButtonInterval.getText().toString().trim();
+        if (!nowButtonInterval.isEmpty()){
+            int currentButtonInterval = Integer.parseInt(nowButtonInterval);
+            if (buttonInterval != currentButtonInterval && currentButtonInterval >= 0) {
+                editor.putInt(KEY_BUTTON_INTERVAL, currentButtonInterval);
+                hasChanges = true;
+            }
+        }else{
+            editor.putInt(KEY_BUTTON_INTERVAL, 0);
+            hasChanges = true;
         }
 
         if (hasChanges) {

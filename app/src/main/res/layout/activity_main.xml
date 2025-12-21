@@ -46,6 +46,7 @@
 
     <!-- 当前播放信息 - 移到顶部中心位置 -->
     <LinearLayout
+        android:id="@+id/layoutTouch"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
@@ -62,6 +63,7 @@
             android:scaleType="centerCrop"
             tools:ignore="ContentDescription" />
         <View
+            android:id="@+id/t1"
             android:layout_width="match_parent"
             android:layout_height="20dp"/>
         <TextView
@@ -142,6 +144,11 @@
                 android:scaleType="fitCenter"
                 android:contentDescription="@string/v2"/>
 
+            <View
+                android:id="@+id/r0"
+                android:layout_width="0dp"
+                android:layout_height="40dp"/>
+
             <!-- 上一首 -->
             <ImageButton
                 android:id="@+id/prevButton"
@@ -152,6 +159,11 @@
                 android:src="@drawable/btn_previous"
                 android:scaleType="fitCenter"
                 android:contentDescription="@string/v3"/>
+
+            <View
+                android:id="@+id/r1"
+                android:layout_width="0dp"
+                android:layout_height="40dp" />
 
             <!-- 播放/暂停 -->
             <ImageButton
@@ -164,6 +176,11 @@
                 android:scaleType="fitCenter"
                 android:contentDescription="@string/v4"/>
 
+            <View
+                android:id="@+id/r2"
+                android:layout_width="0dp"
+                android:layout_height="40dp" />
+
             <!-- 下一首 -->
             <ImageButton
                 android:id="@+id/nextButton"
@@ -175,6 +192,11 @@
                 android:src="@drawable/btn_next"
                 android:scaleType="fitCenter"
                 android:contentDescription="@string/v5"/>
+
+            <View
+                android:id="@+id/r3"
+                android:layout_width="0dp"
+                android:layout_height="40dp" />
 
             <View
                 android:layout_width="1dp"
@@ -192,6 +214,11 @@
                 android:src="@drawable/btn_next_music"
                 android:contentDescription="@string/v1"/>
 
+            <View
+                android:id="@+id/r4"
+                android:layout_width="0dp"
+                android:layout_height="40dp" />
+
             <!-- 功能按钮 -->
             <ImageButton
                 android:id="@+id/settingsButton"
@@ -202,6 +229,11 @@
                 android:src="@drawable/btn_setting"
                 android:background="?android:attr/selectableItemBackground"
                 tools:ignore="ContentDescription" />
+
+            <View
+                android:id="@+id/r5"
+                android:layout_width="0dp"
+                android:layout_height="40dp" />
 
             <ImageButton
                 android:id="@+id/musicListButton"

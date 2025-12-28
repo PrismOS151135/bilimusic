@@ -78,9 +78,9 @@ public class MainActivity extends AppCompatActivity {
     private boolean isPowerOff = false;
     private boolean isKeyLongPress = false;
     private boolean isCooldownActive = false;
+    private boolean isLoop = false;
     private static final long COOLDOWN_DURATION = 1000;
     private static long sleepTime = 0;
-
     private long sleepTimerEndTime;
     private SharedPreferences sharedPreferences;
     private TextView currentMusicText;
@@ -343,6 +343,7 @@ public class MainActivity extends AppCompatActivity {
                 modeButton.setImageResource(R.drawable.btn_play_random);
                 break;
             case "LOOP":
+                isLoop = true;
                 playMode = PlayMode.LOOP;
                 modeButton.setImageResource(R.drawable.btn_play_rotate);
                 break;
@@ -792,6 +793,7 @@ public class MainActivity extends AppCompatActivity {
 
                 // 确保是水平滑动（水平位移大于垂直位移，且最小滑动距离）
                 if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 100) {
+                    isLoop = false;
                     if (diffX > 0) {
                         // 向右滑动 - 上一首
                         playPrevious();
@@ -886,6 +888,7 @@ public class MainActivity extends AppCompatActivity {
                         longPressHandler.postDelayed(() -> {
                             if (!isCooldownActive) {
                                 startCooldown();
+                                isLoop = false;
                                 playPrevious();
                             }
                         }, 500);
@@ -917,6 +920,7 @@ public class MainActivity extends AppCompatActivity {
                         longPressHandler.postDelayed(() -> {
                             if (!isCooldownActive) {
                                 startCooldown();
+                                isLoop = false;
                                 playNext();
                             }
                         }, 500);
@@ -952,6 +956,7 @@ public class MainActivity extends AppCompatActivity {
                             if (!isCooldownActive) {
                                 isKeyLongPress = true;
                                 startCooldown();
+                                isLoop = false;
                                 playPrevious();
                             }
                         }, 500);
@@ -982,6 +987,7 @@ public class MainActivity extends AppCompatActivity {
                             if (!isCooldownActive) {
                                 isKeyLongPress = true;
                                 startCooldown();
+                                isLoop = false;
                                 playNext();
                             }
                         }, 500);
@@ -999,7 +1005,6 @@ public class MainActivity extends AppCompatActivity {
             return false;
         });
     }
-
 
     private void startCooldown() {
         isCooldownActive = true;
@@ -1025,6 +1030,7 @@ public class MainActivity extends AppCompatActivity {
                 modeButton.setImageResource(R.drawable.btn_play_rotate);
                 break;
             case LOOP:
+                isLoop = true;
                 playMode = PlayMode.SEQUENTIAL;
                 modeButton.setImageResource(R.drawable.btn_play_sequential);
                 break;
@@ -1060,7 +1066,9 @@ public class MainActivity extends AppCompatActivity {
                 }
                 break;
             case LOOP:
-                prevPos = currentPosition;
+                if (isLoop) prevPos = currentPosition;
+                else prevPos = (currentPosition + 1) % musicFolders.size();
+                isLoop = true;
                 break;
             case SEQUENTIAL:
             default:
@@ -1116,7 +1124,9 @@ public class MainActivity extends AppCompatActivity {
                 }
                 break;
             case LOOP:
-                nextPos = currentPosition;
+                if (isLoop) nextPos = currentPosition;
+                else nextPos = (currentPosition + 1) % musicFolders.size();
+                isLoop = true;
                 break;
             case SEQUENTIAL:
             default:

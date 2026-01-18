@@ -1027,10 +1027,10 @@ public class MainActivity extends AppCompatActivity {
                 break;
             case RANDOM:
                 playMode = PlayMode.LOOP;
+                isLoop = true;
                 modeButton.setImageResource(R.drawable.btn_play_rotate);
                 break;
             case LOOP:
-                isLoop = true;
                 playMode = PlayMode.SEQUENTIAL;
                 modeButton.setImageResource(R.drawable.btn_play_sequential);
                 break;

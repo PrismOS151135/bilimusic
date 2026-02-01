@@ -8,7 +8,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
-import android.net.Uri;
 import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -28,17 +27,13 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.media3.common.MediaItem;
-import androidx.media3.common.PlaybackException;
-import androidx.media3.common.PlaybackParameters;
-import androidx.media3.common.Player;
-import androidx.media3.exoplayer.ExoPlayer;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.request.RequestOptions;
 
 import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -46,26 +41,34 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Random;
-import java.text.SimpleDateFormat;
 
 public class MainActivity extends AppCompatActivity {
+    // UI组件
     private TextView PlayingTime, allPlayTime, RestSleepTime;
     private ImageButton settingsButton, infoButton, modeButton, prevButton, playButton, nextButton, musicListButton;
     private ProgressBar musicProgressBar;
     private ImageView songImage;
-
+    private TextView currentMusicText, electricQuantityText, nowTimeText;
     private GestureDetector gestureDetector;
     private LinearLayout layoutTouch;
     private boolean isDoubleTap = false;
-
     private View t1, r0, r1, r2, r3, r4, r5;
+
+    // 音乐数据
     protected static final List<String> musicFolders = new ArrayList<>();
     protected static final List<String> shuffledList = new ArrayList<>();
-    private static ExoPlayer exoPlayer;
-    protected static int currentPosition = -1;
-    private static PlayMode playMode = PlayMode.SEQUENTIAL;
-    protected static boolean isPlaying = false;
+    protected static final Map<String, String> folderPathMap = new HashMap<>();
+    protected static String TheMusicText;
+
+    // Service相关
+    private MusicService musicService;
+    private boolean isServiceBound = false;
+
+    // 广播接收器
+    private BroadcastReceiver musicStateReceiver;
+    private BroadcastReceiver errorReceiver;
+
+    // 其他状态
     private float playSpeed = 1.0f;
     private final Handler longPressHandler = new Handler();
     private final Handler keyLongPressHandler = new Handler();
@@ -78,59 +81,40 @@ public class MainActivity extends AppCompatActivity {
     private boolean isPowerOff = false;
     private boolean isKeyLongPress = false;
     private boolean isCooldownActive = false;
-    private boolean isLoop = false;
+    protected static boolean isLoop = false;
     private static final long COOLDOWN_DURATION = 1000;
     private static long sleepTime = 0;
     private long sleepTimerEndTime;
+
+    // 时间和电量
+    protected final Handler timeHandler = new Handler();
+    protected Runnable timeUpdateTask;
+    protected BroadcastReceiver batteryReceiver;
+
+    // SharedPreferences相关
     private SharedPreferences sharedPreferences;
-    private TextView currentMusicText;
-    protected static String TheMusicText;
     protected static final String PREFS_NAME = "MusicPlayerPrefs";
     protected static final String KEY_SCAN_PATH = "scan_path";
     protected static final String KEY_MUSIC_FILE = "music_file";
-    private static final String KEY_PLAY_SPEED = "play_speed";
-    private static final String KEY_LAST_POSITION = "last_position";
-    private static final String KEY_LAST_PLAYBACK_POSITION = "last_playback_position";
-    private static final String KEY_IS_PLAYING = "is_playing";
-    private static final String KEY_PLAY_MODE = "play_mode";
-    private static final String KEY_IMAGE_SIZE = "image_size";
-    private static final String KEY_TEXT_SIZE = "text_size";
+    protected static final String KEY_PLAY_SPEED = "play_speed";
+    protected static final String KEY_LAST_POSITION = "last_position";
+    protected static final String KEY_LAST_PLAYBACK_POSITION = "last_playback_position";
+    protected static final String KEY_IS_PLAYING = "is_playing";
+    protected static final String KEY_PLAY_MODE = "play_mode";
+    protected static final String KEY_IMAGE_SIZE = "image_size";
+    protected static final String KEY_TEXT_SIZE = "text_size";
     protected static final String DEFAULT_SCAN_PATH = "/storage/sdcard1/1/Folder1";
     protected static final String DEFAULT_MUSIC_FILE = "video.mp4";
-    private static String SCAN_PATH;
-    private static String MUSIC_FILE;
-    private MusicService musicService;
-    private static int songImageSize;
-    private static int theTextSize;
-    private static int buttonInterval;
-    private boolean isServiceBound = false;
+    protected static String SCAN_PATH;
+    protected static String MUSIC_FILE;
+    protected static int songImageSize;
+    protected static int theTextSize;
+    protected static int buttonInterval;
+
+    // 后台播放控制
     private boolean shouldPlayInBackground = false;
-    protected static final Map<String,String> folderPathMap = new HashMap<>();
-    //时间与电量
-    private TextView electricQuantityText;
-    private TextView nowTimeText;
-    private final Handler timeHandler = new Handler();
-    private Runnable timeUpdateTask;
-    private BroadcastReceiver batteryReceiver;
-    // 广播接收器，用于接收来自MusicListsActivity的播放请求
-    private final BroadcastReceiver playMusicReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (intent.getAction() != null && intent.getAction().equals(MusicListsActivity.ACTION_PLAY_MUSIC)) {
-                int position = intent.getIntExtra(MusicListsActivity.EXTRA_POSITION, -1);
-                if (position != -1) {
-                    playMusic(position);
-                }
-            }
-        }
-    };
 
-    enum PlayMode {
-        SEQUENTIAL,
-        RANDOM,
-        LOOP
-    }
-
+    // Service连接
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
@@ -138,10 +122,10 @@ public class MainActivity extends AppCompatActivity {
             musicService = binder.getService();
             isServiceBound = true;
 
-            if (musicService.isPlaying()) {
-                isPlaying = true;
-                currentPosition = musicService.getCurrentPosition();
-                updateUI();
+            // 将音乐数据传递给Service
+            if (musicService != null) {
+                musicService.updateMusicData(musicFolders, folderPathMap, shuffledList);
+                Log.d("MainActivity", "Service connected and music data sent");
             }
         }
 
@@ -149,6 +133,20 @@ public class MainActivity extends AppCompatActivity {
         public void onServiceDisconnected(ComponentName name) {
             isServiceBound = false;
             musicService = null;
+            Log.d("MainActivity", "Service disconnected");
+        }
+    };
+
+    // 播放音乐接收器
+    private final BroadcastReceiver playMusicReceiverInternal = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction() != null && intent.getAction().equals(MusicService.ACTION_PLAY)) {
+                int position = intent.getIntExtra(MusicService.EXTRA_POSITION, -1);
+                if (position != -1) {
+                    playMusic(position);
+                }
+            }
         }
     };
 
@@ -160,36 +158,43 @@ public class MainActivity extends AppCompatActivity {
 
         setupSharedPreferences();
         initViews();
-        setImageViewSize(songImage,songImageSize);
-        setViewSize(r0,buttonInterval);
-        setViewSize(r1,buttonInterval);
-        setViewSize(r2,buttonInterval);
-        setViewSize(r3,buttonInterval);
-        setViewSize(r4,buttonInterval);
-        setViewSize(r5,buttonInterval);
-        if (theTextSize == 0){
+        setImageViewSize(songImage, songImageSize);
+        setViewSize(r0, buttonInterval);
+        setViewSize(r1, buttonInterval);
+        setViewSize(r2, buttonInterval);
+        setViewSize(r3, buttonInterval);
+        setViewSize(r4, buttonInterval);
+        setViewSize(r5, buttonInterval);
+
+        if (theTextSize == 0) {
             t1.setVisibility(View.GONE);
             currentMusicText.setVisibility(View.GONE);
-        } else{
+        } else {
             currentMusicText.setVisibility(View.VISIBLE);
             t1.setVisibility(View.VISIBLE);
             currentMusicText.setTextSize(theTextSize);
         }
-        setupExoPlayer();
+
         setupButtonListeners();
         setupGestureDetector();
         setupSleepTimer();
+        setupBroadcastReceivers();
 
-        // 注册广播接收器
-        IntentFilter filter = new IntentFilter(MusicListsActivity.ACTION_PLAY_MUSIC);
-        registerReceiver(playMusicReceiver, filter);
+        // 注册播放音乐广播接收器
+        IntentFilter playFilter = new IntentFilter(MusicService.ACTION_PLAY);
+        registerReceiver(playMusicReceiverInternal, playFilter);
+
         // 注册电量广播接收器
         registerBatteryReceiver();
-        //启动音乐后台Service
+
+        // 启动音乐后台Service
         startAndBindMusicService();
+
+        // 扫描音乐文件夹
+        scanMusicFolders(SCAN_PATH, MUSIC_FILE);
+
         // 恢复上次播放状态
         playSpeed = sharedPreferences.getFloat(KEY_PLAY_SPEED, 1.0f);
-        restorePlaybackState();
     }
 
     @Override
@@ -199,25 +204,26 @@ public class MainActivity extends AppCompatActivity {
         String newMusicFile = sharedPreferences.getString(KEY_MUSIC_FILE, DEFAULT_MUSIC_FILE);
         int timedOffMinutes = sharedPreferences.getInt(SettingsActivity.KEY_TIMED_OFF, 0);
         float newPlaySpeed = sharedPreferences.getFloat(KEY_PLAY_SPEED, 1.0f);
-        isPowerOff = sharedPreferences.getBoolean(SettingsActivity.KEY_IS_POWER_OFF,false);
+        isPowerOff = sharedPreferences.getBoolean(SettingsActivity.KEY_IS_POWER_OFF, false);
 
         songImageSize = sharedPreferences.getInt(KEY_IMAGE_SIZE, 160);
         theTextSize = sharedPreferences.getInt(KEY_TEXT_SIZE, 16);
         buttonInterval = sharedPreferences.getInt(SettingsActivity.KEY_BUTTON_INTERVAL, 0);
+
         setImageViewSize(songImage, songImageSize);
-        setViewSize(r0,buttonInterval);
-        setViewSize(r1,buttonInterval);
-        setViewSize(r2,buttonInterval);
-        setViewSize(r3,buttonInterval);
-        setViewSize(r4,buttonInterval);
-        setViewSize(r5,buttonInterval);
+        setViewSize(r0, buttonInterval);
+        setViewSize(r1, buttonInterval);
+        setViewSize(r2, buttonInterval);
+        setViewSize(r3, buttonInterval);
+        setViewSize(r4, buttonInterval);
+        setViewSize(r5, buttonInterval);
 
         registerBatteryReceiver();
 
-        if (theTextSize == 0){
+        if (theTextSize == 0) {
             t1.setVisibility(View.GONE);
             currentMusicText.setVisibility(View.GONE);
-        } else{
+        } else {
             currentMusicText.setVisibility(View.VISIBLE);
             t1.setVisibility(View.VISIBLE);
             currentMusicText.setTextSize(theTextSize);
@@ -226,11 +232,19 @@ public class MainActivity extends AppCompatActivity {
         if (!newScanPath.equals(SCAN_PATH) || !newMusicFile.equals(MUSIC_FILE)) {
             SCAN_PATH = newScanPath;
             MUSIC_FILE = newMusicFile;
-            if(!scanMusicFolders(SCAN_PATH, MUSIC_FILE)) Toast.makeText(this, "扫描路径不存在: " + SCAN_PATH, Toast.LENGTH_LONG).show();
+            if (!scanMusicFolders(SCAN_PATH, MUSIC_FILE)) {
+                Toast.makeText(this, "扫描路径不存在: " + SCAN_PATH, Toast.LENGTH_LONG).show();
+            } else {
+                // 更新Service中的音乐数据
+                if (isServiceBound && musicService != null) {
+                    musicService.updateMusicData(musicFolders, folderPathMap, shuffledList);
+                }
+            }
         }
 
         if (newPlaySpeed != playSpeed) {
-            setPlaySpeed(newPlaySpeed);
+            playSpeed = newPlaySpeed;
+            changePlaySpeed(playSpeed);
         }
 
         if (timedOffMinutes > 0) {
@@ -238,67 +252,61 @@ public class MainActivity extends AppCompatActivity {
                 cancelSleepTimer();
                 startSleepTimer(timedOffMinutes);
             }
-        }else {
+        } else {
             cancelSleepTimer();
-            sleepTimeUpdateHandler.removeCallbacks(sleepTimeUpdataRunnable);
+            sleepTimeUpdateHandler.removeCallbacks(sleepTimeUpdateRunnable);
             RestSleepTime.setVisibility(View.GONE);
         }
     }
 
-    private void setImageViewSize(ImageView imageView,int size) {
-        if (size == 0){
+    private void setImageViewSize(ImageView imageView, int size) {
+        if (size == 0) {
             imageView.setVisibility(View.GONE);
-            t1.setVisibility(View.GONE);
-        } else{
+            if (t1 != null) t1.setVisibility(View.GONE);
+        } else {
             float density = getResources().getDisplayMetrics().density;
-            int sizeInPx = (int) (size * density + 0.5f);  // 四舍五入确保整数像素
-
-            // 或者使用 TypedValue（更精确）
-            // int sizeInPx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, sizeInDp, getResources().getDisplayMetrics());
+            int sizeInPx = (int) (size * density + 0.5f);
 
             imageView.setVisibility(View.VISIBLE);
-            t1.setVisibility(View.VISIBLE);
+            if (t1 != null) t1.setVisibility(View.VISIBLE);
             LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(sizeInPx, sizeInPx);
             imageView.setLayoutParams(layoutParams);
-            ((ViewGroup) imageView.getParent()).requestLayout();  // 强制父容器重新布局
+            ((ViewGroup) imageView.getParent()).requestLayout();
         }
     }
 
-    private void setViewSize(View View,int size) {
-        if (size == 0){
-            View.setVisibility(android.view.View.GONE);
-        } else{
+    private void setViewSize(View view, int size) {
+        if (size == 0) {
+            view.setVisibility(View.GONE);
+        } else {
             float density = getResources().getDisplayMetrics().density;
-            int sizeInPx = (int) (size * density + 0.5f);  // 四舍五入确保整数像素
+            int sizeInPx = (int) (size * density + 0.5f);
 
-            // 或者使用 TypedValue（更精确）
-            // int sizeInPx = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, sizeInDp, getResources().getDisplayMetrics());
-
-            View.setVisibility(android.view.View.VISIBLE);
+            view.setVisibility(View.VISIBLE);
             LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(sizeInPx, 40);
-            View.setLayoutParams(layoutParams);
-            ((ViewGroup) View.getParent()).requestLayout();  // 强制父容器重新布局
+            view.setLayoutParams(layoutParams);
+            ((ViewGroup) view.getParent()).requestLayout();
         }
     }
 
     private void initViews() {
         currentMusicText = findViewById(R.id.currentMusicText);
-        PlayingTime = findViewById(R.id.PlayingTime);//音频播放时长(now)
-        allPlayTime = findViewById(R.id.allPlayTime);//音频播放时长(all)
-        songImage = findViewById(R.id.songImage);//视频封面(cover.png)
-        musicProgressBar = findViewById(R.id.musicProgressBar);//音频进度条
-        settingsButton = findViewById(R.id.settingsButton);//设置按钮
-        infoButton = findViewById(R.id.infoButton);//查看下一首信息
-        modeButton = findViewById(R.id.modeButton);//列表播放模式
-        prevButton = findViewById(R.id.prevButton);//⏮ 按钮
-        playButton = findViewById(R.id.playButton);//播放键
-        nextButton = findViewById(R.id.nextButton);//⏭ 按钮
-        musicListButton = findViewById(R.id.musicListButton);//列表查看按钮
-        electricQuantityText = findViewById(R.id.electricQuantity);//电量显示
-        nowTimeText = findViewById(R.id.nowTime);//视频标题
-        RestSleepTime = findViewById(R.id.RestSleepTime);//休眠倒计时
-        layoutTouch = findViewById(R.id.layoutTouch);//触控区域
-        t1 = findViewById(R.id.t1);//...史
+        PlayingTime = findViewById(R.id.PlayingTime);
+        allPlayTime = findViewById(R.id.allPlayTime);
+        songImage = findViewById(R.id.songImage);
+        musicProgressBar = findViewById(R.id.musicProgressBar);
+        settingsButton = findViewById(R.id.settingsButton);
+        infoButton = findViewById(R.id.infoButton);
+        modeButton = findViewById(R.id.modeButton);
+        prevButton = findViewById(R.id.prevButton);
+        playButton = findViewById(R.id.playButton);
+        nextButton = findViewById(R.id.nextButton);
+        musicListButton = findViewById(R.id.musicListButton);
+        electricQuantityText = findViewById(R.id.electricQuantity);
+        nowTimeText = findViewById(R.id.nowTime);
+        RestSleepTime = findViewById(R.id.RestSleepTime);
+        layoutTouch = findViewById(R.id.layoutTouch);
+        t1 = findViewById(R.id.t1);
         r0 = findViewById(R.id.r0);
         r1 = findViewById(R.id.r1);
         r2 = findViewById(R.id.r2);
@@ -307,9 +315,6 @@ public class MainActivity extends AppCompatActivity {
         r5 = findViewById(R.id.r5);
 
         RestSleepTime.setVisibility(View.GONE);
-        //播放时间显示
-        updatePlayTimeDisplay();
-        playTimeUpdateHandler.post(timeUpdateRunnable);
 
         // 初始化时间显示
         updateClockDisplay();
@@ -326,193 +331,160 @@ public class MainActivity extends AppCompatActivity {
         sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         MUSIC_FILE = sharedPreferences.getString(KEY_MUSIC_FILE, DEFAULT_MUSIC_FILE);
         SCAN_PATH = sharedPreferences.getString(KEY_SCAN_PATH, DEFAULT_SCAN_PATH);
-        songImageSize = sharedPreferences.getInt(KEY_IMAGE_SIZE,160);
+        songImageSize = sharedPreferences.getInt(KEY_IMAGE_SIZE, 160);
         theTextSize = sharedPreferences.getInt(KEY_TEXT_SIZE, 16);
+        buttonInterval = sharedPreferences.getInt(SettingsActivity.KEY_BUTTON_INTERVAL, 0);
     }
 
-    private void restorePlaybackState() {
-        int lastPosition = sharedPreferences.getInt(KEY_LAST_POSITION, -1);
-        long lastPlaybackPosition = sharedPreferences.getLong(KEY_LAST_PLAYBACK_POSITION, 0);
-        boolean wasPlaying = sharedPreferences.getBoolean(KEY_IS_PLAYING, false);
-        String savedPlayMode = sharedPreferences.getString(KEY_PLAY_MODE, "SEQUENTIAL");
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
+    private void setupBroadcastReceivers() {
+        // 音乐状态更新接收器
+        musicStateReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (MusicService.ACTION_UPDATE_STATE.equals(intent.getAction())) {
+                    int position = intent.getIntExtra(MusicService.EXTRA_POSITION, -1);
+                    String playMode = intent.getStringExtra(MusicService.EXTRA_PLAY_MODE);
+                    long currentTime = intent.getLongExtra(MusicService.EXTRA_CURRENT_TIME, 0);
+                    long totalTime = intent.getLongExtra(MusicService.EXTRA_TOTAL_TIME, 0);
 
-        // 恢复播放模式
-        switch (savedPlayMode) {
-            case "RANDOM":
-                playMode = PlayMode.RANDOM;
-                modeButton.setImageResource(R.drawable.btn_play_random);
-                break;
-            case "LOOP":
-                isLoop = true;
-                playMode = PlayMode.LOOP;
-                modeButton.setImageResource(R.drawable.btn_play_rotate);
-                break;
-            default:
-                playMode = PlayMode.SEQUENTIAL;
-                modeButton.setImageResource(R.drawable.btn_play_sequential);
-                break;
-        }
+                    updateUI(position, playMode);
+                    updatePlayTimeDisplay(currentTime, totalTime);
 
-        if (lastPosition != -1 && lastPosition < musicFolders.size()) {
-            currentPosition = lastPosition;
-
-            currentMusicText.setText(musicFolders.get(currentPosition));
-            TheMusicText = currentMusicText.getText().toString().trim();
-
-            if (!wasPlaying && !musicFolders.isEmpty()) {
-                // 设置播放状态为false，这样播放按钮会显示暂停图标
-                isPlaying = false;
-                updateUI();
-                // 准备播放器但不自动播放，等待用户按下播放按钮
-
-                loadCoverImage(currentPosition);
-                prepareMusicForPlayback(currentPosition, lastPlaybackPosition);
-            } else {
-                // 如果是播放状态
-                isPlaying = true;
-                loadCoverImage(currentPosition);
-                prepareMusicForPlayback(currentPosition, lastPlaybackPosition);
-                exoPlayer.play();
-                updateUI();
-            }
-        }
-    }
-
-    /**
-     * 准备播放器但不自动播放
-     */
-    private void prepareMusicForPlayback(int position, long playbackPosition) {
-        if (position < 0 || position >= musicFolders.size()) return;
-        try {
-            String folderName = musicFolders.get(position);
-            //用Hash进行查找
-            File musicFile = new File(folderPathMap.get(folderName),MUSIC_FILE);
-            if (musicFile.exists()) {
-                Uri audioUri = Uri.fromFile(musicFile);
-                MediaItem mediaItem = MediaItem.fromUri(audioUri);
-
-                exoPlayer.setMediaItem(mediaItem);
-                exoPlayer.prepare();
-                // 设置播放位置但不开始播放
-                exoPlayer.seekTo(playbackPosition);
-                exoPlayer.pause(); // 确保暂停状态
-                if (playSpeed != 1.0f) {
-                    setPlaySpeed(playSpeed);
+                    if (MusicService.isPlaying) {
+                        startTimeUpdate();
+                    } else {
+                        stopTimeUpdate();
+                    }
                 }
-                // 更新服务状态
-                if (isServiceBound && musicService != null) {
-                    musicService.updatePlaybackState(currentPosition, false); // 设置为未播放状态
-                }
-            } else {
-                Toast.makeText(this, "找不到音乐文件: " + folderName, Toast.LENGTH_SHORT).show();
             }
-        } catch (Exception e) {
-            Log.e("MainActivity", "prepareMusicForPlayback错误：");
-            Toast.makeText(this, "准备播放失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        }
+        };
+
+        // 错误接收器 - 修复ACTION常量
+        errorReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (MusicService.ACTION_ERROR.equals(intent.getAction())) {
+                    String errorMsg = intent.getStringExtra(MusicService.EXTRA_ERROR_MESSAGE);
+                    Toast.makeText(MainActivity.this, errorMsg, Toast.LENGTH_SHORT).show();
+                }
+            }
+        };
+
+        IntentFilter stateFilter = new IntentFilter(MusicService.ACTION_UPDATE_STATE);
+        IntentFilter errorFilter = new IntentFilter(MusicService.ACTION_ERROR);
+        registerReceiver(musicStateReceiver, stateFilter);
+        registerReceiver(errorReceiver, errorFilter);
     }
-    private void savePlaybackState() {
-        SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.putInt(KEY_LAST_POSITION, currentPosition);
-        editor.putBoolean(KEY_IS_PLAYING, isPlaying);
-        editor.putString(KEY_PLAY_MODE, playMode.name());
-        if (exoPlayer != null) {
-            editor.putLong(KEY_LAST_PLAYBACK_POSITION, exoPlayer.getCurrentPosition());
+
+    private void updateUI(int position, String playMode) {
+        if (MusicService.isPlaying) {
+            playButton.setImageResource(R.drawable.btn_stop);
         } else {
-            editor.putLong(KEY_LAST_PLAYBACK_POSITION, 0);
+            playButton.setImageResource(R.drawable.btn_play);
         }
-        editor.apply();
+
+        if (position != -1 && position < musicFolders.size()) {
+            currentMusicText.setText(musicFolders.get(position));
+            TheMusicText = currentMusicText.getText().toString().trim();
+            loadCoverImage(position);
+        }
+
+        // 更新播放模式图标
+        if (playMode != null) {
+            switch (playMode) {
+                case "RANDOM":
+                    modeButton.setImageResource(R.drawable.btn_play_random);
+                    break;
+                case "LOOP":
+                    modeButton.setImageResource(R.drawable.btn_play_rotate);
+                    break;
+                default:
+                    modeButton.setImageResource(R.drawable.btn_play_sequential);
+                    break;
+            }
+        }
     }
 
-    //--------------------------------------------------------------------------//
+    private void startTimeUpdate() {
+        playTimeUpdateHandler.removeCallbacks(timeUpdateRunnable);
+        playTimeUpdateHandler.post(timeUpdateRunnable);
+    }
 
-    /**
-     * 播放时间显示
-     */
-    //定义
+    private void stopTimeUpdate() {
+        playTimeUpdateHandler.removeCallbacks(timeUpdateRunnable);
+    }
+
     private final Runnable timeUpdateRunnable = new Runnable() {
         @Override
         public void run() {
-            updatePlayTimeDisplay();
+            if (isServiceBound && musicService != null) {
+                long currentTime = musicService.getCurrentPlaybackTime();
+                long totalTime = musicService.getDuration();
+                updatePlayTimeDisplay(currentTime, totalTime);
+            }
             playTimeUpdateHandler.postDelayed(this, 1000);
         }
     };
-    //实现
-    @SuppressLint({"DefaultLocale", "SetTextI18n"})
-    private void updatePlayTimeDisplay() {
-        if (exoPlayer != null && isPlaying) {
-            try {
-                long currentPosition = exoPlayer.getCurrentPosition();//播放时间
-                long duration = exoPlayer.getDuration();//完整时间
-                if (duration > 0) {
-                    int Progress = (int) (500 * currentPosition / duration);
-                    musicProgressBar.setProgress(Progress);
-                }else{
-                    musicProgressBar.setProgress(0);
-                }
-                String currentTime = formatTime(currentPosition);
-                String totalTime = formatTime(duration);
 
-                PlayingTime.setText(currentTime);
-                allPlayTime.setText(totalTime);
-            } catch (Exception e) {
-                PlayingTime.setText("00:00");
-                allPlayTime.setText("00:91");
-            }
+    @SuppressLint("DefaultLocale")
+    private void updatePlayTimeDisplay(long currentTime, long totalTime) {
+        if (totalTime > 0) {
+            int progress = (int) (500 * currentTime / totalTime);
+            musicProgressBar.setProgress(progress);
         } else {
-            PlayingTime.setText("00:00");
-            allPlayTime.setText("00:91");
+            musicProgressBar.setProgress(0);
         }
+
+        String currentTimeStr = formatTime(currentTime);
+        String totalTimeStr = formatTime(totalTime);
+
+        PlayingTime.setText(currentTimeStr);
+        allPlayTime.setText(totalTimeStr);
     }
-    //时间格式化
+
     @SuppressLint("DefaultLocale")
     private String formatTime(long milliseconds) {
-        if(milliseconds < 0)milliseconds = 0;
+        if (milliseconds < 0) milliseconds = 0;
         long totalSeconds = milliseconds / 1000;
         long minutes = totalSeconds / 60;
         long seconds = totalSeconds % 60;
         return String.format("%02d:%02d", minutes, seconds);
     }
-    /**
-     * 定时结束时间显示
-     */
-    //定义
-    private final Runnable sleepTimeUpdataRunnable = new Runnable() {
+
+    // 播放时间显示更新
+    private final Runnable sleepTimeUpdateRunnable = new Runnable() {
         @Override
         public void run() {
             updateSleepTimeDisplay();
-            sleepTimeUpdateHandler.postDelayed(this,1000);
+            sleepTimeUpdateHandler.postDelayed(this, 1000);
         }
     };
-    //实现
-    private void updateSleepTimeDisplay(){
+
+    private void updateSleepTimeDisplay() {
         long nowSleepTime = sleepTimerEndTime - System.currentTimeMillis();
-        if (isSleepTimerActive && nowSleepTime >= 0){
+        if (isSleepTimerActive && nowSleepTime >= 0) {
             RestSleepTime.setVisibility(View.VISIBLE);
             long minutes = nowSleepTime / (60 * 1000);
             long seconds = (nowSleepTime % (60 * 1000)) / 1000;
             RestSleepTime.setText(String.format(Locale.ROOT, "%d分%02d秒", minutes, seconds));
-        }else{
-            sleepTimeUpdateHandler.removeCallbacks(sleepTimeUpdataRunnable);
+        } else {
+            sleepTimeUpdateHandler.removeCallbacks(sleepTimeUpdateRunnable);
             RestSleepTime.setVisibility(View.GONE);
         }
     }
-    /**
-     * 当前时钟显示
-     */
-    //定义
+
     private void startClockUpdate() {
         timeUpdateTask = new Runnable() {
             @Override
             public void run() {
                 updateClockDisplay();
-                // 每30s更新一次（或者可以更频繁，如每秒一次）
                 timeHandler.postDelayed(this, 30000);
             }
         };
         timeHandler.post(timeUpdateTask);
     }
-    //实现
+
     @SuppressLint("SimpleDateFormat")
     private void updateClockDisplay() {
         if (nowTimeText == null) return;
@@ -521,9 +493,7 @@ public class MainActivity extends AppCompatActivity {
         String currentTime = sdf.format(new Date());
         nowTimeText.setText(currentTime);
     }
-    /**
-     * 创建电池广播接收器
-     */
+
     private void registerBatteryReceiver() {
         batteryReceiver = new BroadcastReceiver() {
             @SuppressLint("SetTextI18n")
@@ -548,40 +518,26 @@ public class MainActivity extends AppCompatActivity {
         registerReceiver(batteryReceiver, filter);
     }
 
-    //--------------------------------------------------------------------------//
-
-    /**
-     * UI更新
-     */
-    private void updateUI() {
-        if (isPlaying) {
-            playButton.setImageResource(R.drawable.btn_stop);
-        } else {
-            playButton.setImageResource(R.drawable.btn_play);
-        }
-    }
-    //使用加载封面图片
     private void loadCoverImage(int position) {
         if (position < 0 || position >= musicFolders.size()) return;
-        String folderPath = folderPathMap.get( musicFolders.get(position));
+        String folderPath = folderPathMap.get(musicFolders.get(position));
         if (folderPath == null) return;
-        // 设置Glide的RequestOptions
+
         RequestOptions requestOptions = new RequestOptions()
-                .centerCrop() // 设置图片居中裁剪
-                .error(R.drawable.img_error) // 加载错误时显示的图片
-                .placeholder(R.drawable.img_loading) // 加载过程中显示的占位图
-                .diskCacheStrategy(DiskCacheStrategy.ALL) // 缓存策略
-                .override(400, 400); // 可以设置图片大小，根据实际需要调整
+                .centerCrop()
+                .error(R.drawable.img_error)
+                .placeholder(R.drawable.img_loading)
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .override(400, 400);
+
         File coverFile = new File(folderPath, "cover.png");
 
         if (coverFile.exists() && coverFile.length() > 0) {
-            // 使用Glide加载封面图片
             Glide.with(this)
                     .load(coverFile)
                     .apply(requestOptions)
                     .into(songImage);
         } else {
-            // 没有找到封面图片，使用默认图片
             Glide.with(this)
                     .load(R.drawable.img_none)
                     .apply(requestOptions)
@@ -589,125 +545,37 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    //--------------------------------------------------------------------------//
-
-    /**
-     * 核心实现
-     */
-    //音乐播放核心功能实现
-    @SuppressLint("SetTextI18n")
+    // 播放控制方法
     protected void playMusic(int position) {
-        if (position < 0 || position >= musicFolders.size()) return;
-        try {
-            if (exoPlayer.isPlaying()) {
-                exoPlayer.stop();
-            }
-            String folderName = musicFolders.get(position);
-            File musicFile = new File(folderPathMap.get(folderName),MUSIC_FILE);
-
-            if (musicFile.exists()) {
-                Uri audioUri = Uri.fromFile(musicFile);
-                MediaItem mediaItem = MediaItem.fromUri(audioUri);
-
-                loadCoverImage(position);
-
-                exoPlayer.setMediaItem(mediaItem);
-                exoPlayer.prepare();
-                exoPlayer.play();
-
-                if (playSpeed != 1.0f) {
-                    setPlaySpeed(playSpeed);
-                }
-
-                currentPosition = position;
-                isPlaying = true;
-                updateUI();
-
-                currentMusicText.setText(folderName);
-                TheMusicText = currentMusicText.getText().toString().trim();
-
-                if (isServiceBound && musicService != null) {
-                    musicService.updatePlaybackState(currentPosition, isPlaying);
-                }
-
-                // 发送广播通知MusicListsActivity更新状态
-                Intent statusUpdateIntent = new Intent("com.prismOS.bilimusic.STATUS_UPDATE");
-                sendBroadcast(statusUpdateIntent);
-
-                playTimeUpdateHandler.post(timeUpdateRunnable);
-                savePlaybackState(); // 保存播放状态
-
-            } else {
-                Toast.makeText(this, "找不到音乐文件: " + folderName, Toast.LENGTH_SHORT).show();
-            }
-        } catch (Exception e) {
-            Log.e("MainActivity", "playMusic错误：", e);
-            Toast.makeText(this, "播放失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        }
+        // 发送给MusicService播放指定位置的音乐
+        Intent intent = new Intent(MusicService.ACTION_PLAY_POSITION);
+        intent.putExtra(MusicService.EXTRA_POSITION, position);
+        sendBroadcast(intent);
     }
-    //暂停、播放功能实现
+
     public void togglePlayPause() {
-        if (exoPlayer == null) return;
-
-        // 添加简单的视觉反馈
-        if (isPlaying) {
-            // 暂停播放
-            exoPlayer.pause();
-            isPlaying = false;
-            playTimeUpdateHandler.removeCallbacks(timeUpdateRunnable);
-
-            // 发送广播通知MusicListsActivity更新状态
-            Intent statusUpdateIntent = new Intent("com.prismOS.bilimusic.STATUS_UPDATE");
-            sendBroadcast(statusUpdateIntent);
-        } else {
-            // 开始播放
-            if (currentPosition == -1 && !musicFolders.isEmpty()) {
-                // 如果没有当前曲目，从第一首开始
-                playMusic(0);
-            } else if (currentPosition != -1) {
-                // 检查播放器是否有媒体项，如果没有则重新设置
-                if (exoPlayer.getMediaItemCount() == 0) {
-                    // 重新准备播放器
-                    prepareMusicForPlayback(currentPosition, 0);
-                }
-
-                // 开始播放
-                exoPlayer.play();
-                isPlaying = true;
-                playTimeUpdateHandler.post(timeUpdateRunnable);
-
-                // 发送广播通知MusicListsActivity更新状态
-                Intent statusUpdateIntent = new Intent("com.prismOS.bilimusic.STATUS_UPDATE");
-                sendBroadcast(statusUpdateIntent);
-
-                // 更新服务状态
-                if (isServiceBound && musicService != null) {
-                    musicService.updatePlaybackState(currentPosition, isPlaying);
-                }
-            }
-        }
-
-        updateUI();
-        savePlaybackState(); // 保存状态变更
+        // 发送给MusicService切换播放/暂停
+        Intent intent = new Intent(MusicService.ACTION_PAUSE);
+        sendBroadcast(intent);
     }
-    //音乐列表生成 I
+
     public static boolean scanMusicFolders(String scanPath, String musicFile) {
         musicFolders.clear();
         shuffledList.clear();
+        folderPathMap.clear();
+
         File baseDir = new File(scanPath);
 
         if (baseDir.exists() && baseDir.isDirectory()) {
             scanDirectory(baseDir, musicFile);
-            // 初始化打乱列表
             shuffledList.addAll(musicFolders);
-            // 如果当前是随机模式，打乱列表
             Collections.shuffle(shuffledList);
+            return true;
         } else {
             return false;
         }
-        return true;
     }
-    //音乐列表生成 II
+
     public static void scanDirectory(File dir, String musicFile) {
         File[] files = dir.listFiles();
         if (files == null) return;
@@ -723,38 +591,16 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
-    //...
-    private void setPlaySpeed(float speed) {
-        this.playSpeed = speed;
 
-        if (exoPlayer != null) {
-            PlaybackParameters playbackParameters = new PlaybackParameters(speed);
-            exoPlayer.setPlaybackParameters(playbackParameters);
-        }
+    private void changePlaySpeed(float speed) {
+        this.playSpeed = speed;
+        Intent intent = new Intent(MusicService.ACTION_CHANGE_SPEED);
+        intent.putExtra(MusicService.EXTRA_PLAY_SPEED, speed);
+        sendBroadcast(intent);
 
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putFloat(KEY_PLAY_SPEED, speed);
         editor.apply();
-
-        Toast.makeText(this, "播放速度设置为: " + speed + "x", Toast.LENGTH_SHORT).show();
-    }
-    //...
-    private void setupExoPlayer() {
-        exoPlayer = new ExoPlayer.Builder(this).build();
-
-        exoPlayer.addListener(new Player.Listener() {
-            @Override
-            public void onPlaybackStateChanged(int playbackState) {
-                if (playbackState == Player.STATE_ENDED) {
-                    playNext();
-                }
-            }
-
-            @Override
-            public void onPlayerError(@NonNull PlaybackException error) {
-                Toast.makeText(MainActivity.this, "播放错误: " + error.getMessage(), Toast.LENGTH_SHORT).show();
-            }
-        });
     }
 
     private void setupButtonListeners() {
@@ -763,22 +609,18 @@ public class MainActivity extends AppCompatActivity {
         modeButton.setOnClickListener(v -> switchPlayMode());
         playButton.setOnClickListener(v -> togglePlayPause());
         musicListButton.setOnClickListener(v -> openLists());
-
+ 
         setupTouchListeners();
         setupBtnKeyListeners();
     }
-
-    @SuppressLint("ClickableViewAccessibility")
+    @SuppressLint("ClickableViewAccessibility") 
     private void setupGestureDetector() {
         gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override
             public boolean onDoubleTap(@NonNull MotionEvent e) {
-                // 双击播放/暂停
                 if (!isDoubleTap) {
                     isDoubleTap = true;
                     togglePlayPause();
-
-                    // 重置双击标志
                     new Handler().postDelayed(() -> isDoubleTap = false, 300);
                     return true;
                 }
@@ -787,29 +629,23 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public boolean onFling(MotionEvent e1, @NonNull MotionEvent e2, float velocityX, float velocityY) {
-                // 左右滑动切换歌曲
                 float diffX = e2.getX() - e1.getX();
                 float diffY = e2.getY() - e1.getY();
 
-                // 确保是水平滑动（水平位移大于垂直位移，且最小滑动距离）
                 if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 100) {
                     isLoop = false;
                     if (diffX > 0) {
-                        // 向右滑动 - 上一首
                         playPrevious();
                     } else {
-                        // 向左滑动 - 下一首
                         playNext();
                     }
                     return true;
                 }
                 return false;
             }
-
         });
-        // 为 layoutTouch 设置触摸监听器
+
         layoutTouch.setOnTouchListener((v, event) -> {
-            // 将触摸事件传递给手势检测器
             gestureDetector.onTouchEvent(event);
             return true;
         });
@@ -832,45 +668,13 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        switch (playMode) {
-            case SEQUENTIAL:
-                if (currentPosition > -1) {
-                    int nextPos = (currentPosition + 1) % musicFolders.size();
-                    Toast.makeText(this, "下一首: " + musicFolders.get(nextPos), Toast.LENGTH_SHORT).show();
-                }
-                break;
-            case RANDOM:
-                if (shuffledList.isEmpty()) {
-                    Toast.makeText(this, "播放列表为空,请尝试重启应用", Toast.LENGTH_SHORT).show();
-                } else {
-                    int currentShufflePos = getCurrentShufflePosition();
-                    if (currentShufflePos == -1) {
-                        // 如果当前不在打乱列表中，随机选择一首
-                        int randomPos = new Random().nextInt(shuffledList.size());
-                        Toast.makeText(this, "下一首: " + shuffledList.get(randomPos), Toast.LENGTH_SHORT).show();
-                    } else {
-                        int nextPos = (currentShufflePos + 1) % shuffledList.size();
-                        Toast.makeText(this, "下一首: " + shuffledList.get(nextPos), Toast.LENGTH_SHORT).show();
-                    }
-                }
-                break;
-            case LOOP:
-                if (currentPosition != -1) {
-                    Toast.makeText(this, "单曲循环: " + musicFolders.get(currentPosition), Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(this, "单曲循环: 无", Toast.LENGTH_SHORT).show();
-                }
-                break;
+        if (isServiceBound && musicService != null) {
+            String nextMusic = musicService.getNextMusicInfo();
+            if (nextMusic != null) {
+                Toast.makeText(this, "下一首: " + nextMusic, Toast.LENGTH_SHORT).show();
+            }
         }
     }
-
-    private int getCurrentShufflePosition() {
-        if (currentPosition == -1) return -1;
-        String currentFolder = musicFolders.get(currentPosition);
-        return shuffledList.indexOf(currentFolder);
-    }
-
-    //--------------------------------------------------------------------------//
 
     @SuppressLint("ClickableViewAccessibility")
     private void setupTouchListeners() {
@@ -1011,204 +815,130 @@ public class MainActivity extends AppCompatActivity {
         cooldownHandler.postDelayed(() -> isCooldownActive = false, COOLDOWN_DURATION);
     }
 
-    //--------------------------------------------------------------------------//
-
-    /**
-     * 播放功能
-     */
-    //切换播放模式
+    // 播放功能
     private void switchPlayMode() {
-        switch (playMode) {
-            case SEQUENTIAL:
-                playMode = PlayMode.RANDOM;
-                modeButton.setImageResource(R.drawable.btn_play_random);
-                // 打乱列表
-                Collections.shuffle(shuffledList);
-                break;
-            case RANDOM:
-                playMode = PlayMode.LOOP;
-                isLoop = true;
-                modeButton.setImageResource(R.drawable.btn_play_rotate);
-                break;
-            case LOOP:
-                playMode = PlayMode.SEQUENTIAL;
-                modeButton.setImageResource(R.drawable.btn_play_sequential);
-                break;
-        }
-
         if (isServiceBound && musicService != null) {
-            musicService.updatePlaybackState(currentPosition, isPlaying);
-        }
+            MusicService.PlayMode currentMode = musicService.playMode;
+            MusicService.PlayMode nextMode;
 
-        // 保存播放模式
-        savePlaybackState();
+            switch (currentMode) {
+                case SEQUENTIAL:
+                    nextMode = MusicService.PlayMode.RANDOM;
+                    break;
+                case RANDOM:
+                    nextMode = MusicService.PlayMode.LOOP;
+                    break;
+                case LOOP:
+                default:
+                    nextMode = MusicService.PlayMode.SEQUENTIAL;
+                    break;
+            }
+
+            Intent intent = new Intent(MusicService.ACTION_CHANGE_MODE);
+            intent.putExtra(MusicService.EXTRA_PLAY_MODE, nextMode.name());
+            sendBroadcast(intent);
+        }
     }
-    //播放上一首
+
     public void playPrevious() {
-        if (musicFolders.isEmpty()) {
-            Toast.makeText(this, "没有可播放的音乐", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        int prevPos;
-        switch (playMode) {
-            case RANDOM:
-                if (shuffledList.isEmpty()) {
-                    prevPos = 0;
-                } else {
-                    int currentShufflePos = getCurrentShufflePosition();
-                    if (currentShufflePos == -1) {
-                        prevPos = new Random().nextInt(shuffledList.size());
-                    } else {
-                        prevPos = (currentShufflePos - 1 + shuffledList.size()) % shuffledList.size();
-                    }
-                    String prevFolder = shuffledList.get(prevPos);
-                    prevPos = musicFolders.indexOf(prevFolder);
-                }
-                break;
-            case LOOP:
-                if (isLoop) prevPos = currentPosition;
-                else prevPos = (currentPosition + 1) % musicFolders.size();
-                isLoop = true;
-                break;
-            case SEQUENTIAL:
-            default:
-                if (currentPosition == -1) {
-                    prevPos = musicFolders.size() - 1;
-                } else {
-                    prevPos = (currentPosition - 1 + musicFolders.size()) % musicFolders.size();
-                }
-                break;
-        }
-        playMusic(prevPos);
+        Intent intent = new Intent(MusicService.ACTION_PREVIOUS);
+        sendBroadcast(intent);
     }
-    //快退
+
     private void fastRewind() {
-        if (exoPlayer != null && isPlaying) {
-            long current = exoPlayer.getCurrentPosition();
-            exoPlayer.seekTo(Math.max(0, current - 5000));
-            updatePlayTimeDisplay();
+        if (isServiceBound && musicService != null && musicService.isPlaying()) {
+            long current = musicService.getCurrentPlaybackTime();
+            long newPosition = Math.max(0, current - 5000);
+
+            Intent intent = new Intent(MusicService.ACTION_SEEK_TO);
+            intent.putExtra(MusicService.EXTRA_SEEK_POSITION, newPosition);
+            sendBroadcast(intent);
+
+            updatePlayTimeDisplay(newPosition, musicService.getDuration());
         } else {
             Toast.makeText(this, "请先开始播放", Toast.LENGTH_SHORT).show();
         }
     }
-    //快进
+
     private void fastForward() {
-        if (exoPlayer != null && isPlaying) {
-            long current = exoPlayer.getCurrentPosition();
-            exoPlayer.seekTo(current + 5000);
-            updatePlayTimeDisplay();
+        if (isServiceBound && musicService != null && musicService.isPlaying()) {
+            long current = musicService.getCurrentPlaybackTime();
+            long newPosition = current + 5000;
+
+            Intent intent = new Intent(MusicService.ACTION_SEEK_TO);
+            intent.putExtra(MusicService.EXTRA_SEEK_POSITION, newPosition);
+            sendBroadcast(intent);
+
+            updatePlayTimeDisplay(newPosition, musicService.getDuration());
         } else {
             Toast.makeText(this, "请先开始播放", Toast.LENGTH_SHORT).show();
         }
     }
-    //播放下一首
+
     private void playNext() {
-        if (musicFolders.isEmpty()) {
-            Toast.makeText(this, "没有可播放的音乐", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        int nextPos;
-        switch (playMode) {
-            case RANDOM:
-                if (shuffledList.isEmpty()) {
-                    nextPos = 0;
-                } else {
-                    int currentShufflePos = getCurrentShufflePosition();
-                    if (currentShufflePos == -1) {
-                        nextPos = new Random().nextInt(shuffledList.size());
-                    } else {
-                        nextPos = (currentShufflePos + 1) % shuffledList.size();
-                    }
-                    String nextFolder = shuffledList.get(nextPos);
-                    nextPos = musicFolders.indexOf(nextFolder);
-                }
-                break;
-            case LOOP:
-                if (isLoop) nextPos = currentPosition;
-                else nextPos = (currentPosition + 1) % musicFolders.size();
-                isLoop = true;
-                break;
-            case SEQUENTIAL:
-            default:
-                if (currentPosition == -1) {
-                    nextPos = 0;
-                } else {
-                    nextPos = (currentPosition + 1) % musicFolders.size();
-                }
-                break;
-        }
-        playMusic(nextPos);
+        Intent intent = new Intent(MusicService.ACTION_NEXT);
+        sendBroadcast(intent);
     }
 
-    //--------------------------------------------------------------------------//
-
-    /**
-     * 定时设置
-     */
-    //启动
+    // 定时设置
     private void startSleepTimer(int minutes) {
         if (!isSleepTimerActive) {
             sleepTime = minutes;
             sleepTimerEndTime = System.currentTimeMillis() + (minutes * 60 * 1000L);
             long delay = minutes * 60 * 1000L;
             sleepTimerHandler.postDelayed(sleepTimerRunnable, delay);
-            sleepTimeUpdateHandler.post(sleepTimeUpdataRunnable);
+            sleepTimeUpdateHandler.post(sleepTimeUpdateRunnable);
             isSleepTimerActive = true;
         }
     }
-    //结束
+
     private void setupSleepTimer() {
         sleepTimerRunnable = () -> {
-            updatePlayTimeDisplay();
-            if (exoPlayer != null && exoPlayer.isPlaying()) {
-                exoPlayer.pause();
+            if (isServiceBound && musicService != null && musicService.isPlaying()) {
+                Intent pauseIntent = new Intent(MusicService.ACTION_PAUSE);
+                sendBroadcast(pauseIntent);
             }
-            isPlaying = false;
-            updateUI();
-
-            playTimeUpdateHandler.removeCallbacks(timeUpdateRunnable);
 
             Toast.makeText(MainActivity.this, "定时关闭时间到，播放已停止", Toast.LENGTH_LONG).show();
             isSleepTimerActive = false;
 
-            if (isServiceBound && musicService != null) {
-                musicService.updatePlaybackState(currentPosition, isPlaying);
-            }
-            if(isPowerOff){
+            if (isPowerOff) {
                 Intent intent = new Intent();
                 intent.setClassName("com.mediatek.schpwronoff", "com.mediatek.schpwronoff.ShutdownActivity");
                 try {
                     startActivity(intent);
                 } catch (Exception e) {
-                    // 处理Activity不存在的情况
-                    Toast.makeText(this, "关机失败because:" + e, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "关机失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 }
             }
         };
     }
-    //销毁
+
     private void cancelSleepTimer() {
         sleepTimerHandler.removeCallbacks(sleepTimerRunnable);
         isSleepTimerActive = false;
         sleepTime = -1;
     }
 
-    //--------------------------------------------------------------------------//
-
-    /**
-     * 退出、结束程序
-     */
     @Override
     public void onBackPressed() {
-        if (isPlaying) {
-            // 如果正在播放，转到后台播放
+        if (isServiceBound && musicService != null && musicService.isPlaying()) {
             shouldPlayInBackground = true;
             savePlaybackState();
             moveTaskToBack(true);
             Toast.makeText(this, "音乐在后台播放中", Toast.LENGTH_SHORT).show();
         } else {
-            // 如果没有播放，正常退出
             super.onBackPressed();
+        }
+    }
+
+    private void savePlaybackState() {
+        if (isServiceBound && musicService != null) {
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putInt(KEY_LAST_POSITION, musicService.getCurrentPosition());
+            editor.putBoolean(KEY_IS_PLAYING, musicService.isPlaying());
+            editor.putFloat(KEY_PLAY_SPEED, playSpeed);
+            editor.apply();
         }
     }
 
@@ -1228,38 +958,79 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // 注销广播接收器
-        unregisterReceiver(playMusicReceiver);
 
-        // 注销电量广播接收器(不知道为什么反正不能注销。。。)
-        //if (batteryReceiver != null) {unregisterReceiver(batteryReceiver);}
+        // 标记Activity已销毁
+        isDoubleTap = false;
+        isServiceBound = false;
+
+        // 注销广播接收器
+        if (playMusicReceiverInternal != null) {
+            try {
+                unregisterReceiver(playMusicReceiverInternal);
+            } catch (IllegalArgumentException e) {
+                Log.e("MainActivity", "playMusicReceiverInternal already unregistered", e);
+            }
+        }
+        if (musicStateReceiver != null) {
+            try {
+                unregisterReceiver(musicStateReceiver);
+            } catch (IllegalArgumentException e) {
+                Log.e("MainActivity", "musicStateReceiver already unregistered", e);
+            }
+        }
+        if (errorReceiver != null) {
+            try {
+                unregisterReceiver(errorReceiver);
+            } catch (IllegalArgumentException e) {
+                Log.e("MainActivity", "errorReceiver already unregistered", e);
+            }
+        }
 
         // 停止时钟更新
         if (timeUpdateTask != null) {
             timeHandler.removeCallbacks(timeUpdateTask);
         }
+
         // 保存播放状态
         savePlaybackState();
 
-        // 如果不应该在后台播放，停止服务
-        if (!shouldPlayInBackground) {
-            if (isServiceBound) {
-                unbindService(serviceConnection);
-                isServiceBound = false;
-            }
-            Intent serviceIntent = new Intent(this, MusicService.class);
-            stopService(serviceIntent);
-        }
-
-        cancelSleepTimer();
+        // 停止时间更新
         playTimeUpdateHandler.removeCallbacks(timeUpdateRunnable);
-        sleepTimeUpdateHandler.removeCallbacks(sleepTimeUpdataRunnable);
-        if (exoPlayer != null) {
-            exoPlayer.release();
-            exoPlayer = null;
-        }
+        sleepTimeUpdateHandler.removeCallbacks(sleepTimeUpdateRunnable);
+
+        // 取消定时器
+        cancelSleepTimer();
+
+        // 清理Handler
         longPressHandler.removeCallbacksAndMessages(null);
         keyLongPressHandler.removeCallbacksAndMessages(null);
         cooldownHandler.removeCallbacksAndMessages(null);
+
+        // 解除服务绑定
+        if (isServiceBound) {
+            try {
+                unbindService(serviceConnection);
+            } catch (IllegalArgumentException e) {
+                Log.e("MainActivity", "Service already unbound", e);
+            }
+            isServiceBound = false;
+        }
+
+        // 停止后台播放
+        shouldPlayInBackground = false;
+
+        // 如果不应该在后台播放，停止服务
+        if (!shouldPlayInBackground) {
+            Intent serviceIntent = new Intent(this, MusicService.class);
+            try {
+                stopService(serviceIntent);
+            } catch (IllegalStateException e) {
+                Log.e("MainActivity", "Service already stopped", e);
+            }
+        }
+
+        // 清理UI引用
+        layoutTouch = null;
+        songImage = null;
     }
 }
